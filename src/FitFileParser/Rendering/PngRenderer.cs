@@ -175,7 +175,7 @@ public sealed class PngRenderer
     /// </summary>
     private static IReadOnlyList<(string Label, string Value)> BuildOverviewStats(ActivitySummary activity)
     {
-        var all = new List<(string Label, string? Value)>
+        var allPossibleStats = new List<(string Label, string? Value)>
         {
             // ── Timing ────────────────────────────────────────────────────
             ("TIME",              FormatElapsed(activity.TotalTimerTime)),
@@ -325,9 +325,9 @@ public sealed class PngRenderer
         };
 
         // Only return tiles that have actual data
-        return all
-            .Where(s => s.Value is not null)
-            .Select(s => (s.Label, Value: s.Value!))
+        return allPossibleStats
+            .Where(stat => stat.Value is not null)
+            .Select(stat => (stat.Label, Value: stat.Value!))
             .ToList();    }
 
     // -----------------------------------------------------------------
