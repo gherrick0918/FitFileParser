@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/FitFileParser/FitFileParser.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FitFileParser.Tests/FitFileParser.Tests.csproj" />
+  </Folder>
+</Solution>
