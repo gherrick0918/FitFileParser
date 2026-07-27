@@ -57,9 +57,9 @@ try
     if (activity.MaxSpeedMph.HasValue)
         Console.WriteLine($"  Max speed:{activity.MaxSpeedMph.Value,6:F2} mph");
     if (activity.AvgCadence.HasValue || activity.AvgRunningCadence.HasValue)
-        Console.WriteLine($"  Cadence:  {activity.AvgRunningCadence ?? activity.AvgCadence} avg rpm");
+        Console.WriteLine($"  Cadence:  {activity.AvgRunningCadence ?? activity.AvgCadence} avg spm");
     if (activity.MaxCadence.HasValue || activity.MaxRunningCadence.HasValue)
-        Console.WriteLine($"  Max cad.: {activity.MaxRunningCadence ?? activity.MaxCadence} rpm");
+        Console.WriteLine($"  Max cad.: {activity.MaxRunningCadence ?? activity.MaxCadence} spm");
     if (activity.TotalMovingTime.HasValue)
         Console.WriteLine($"  Moving:   {activity.TotalMovingTime.Value}");
     if (activity.TotalWorkJoules.HasValue)
