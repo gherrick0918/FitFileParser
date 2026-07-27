@@ -64,10 +64,10 @@ try
         Console.WriteLine($"  Moving:   {activity.TotalMovingTime.Value}");
     if (activity.TotalWorkJoules.HasValue)
         Console.WriteLine($"  Work:     {activity.TotalWorkJoules.Value / 1000f:F1} kJ");
-    if (activity.MinAltitudeM.HasValue || activity.MaxAltitudeM.HasValue)
-        Console.WriteLine($"  Altitude: {activity.MinAltitudeM?.ToString("F0") ?? "—"} to {activity.MaxAltitudeM?.ToString("F0") ?? "—"} m");
-    if (activity.AvgTemperatureC.HasValue || activity.MaxTemperatureC.HasValue)
-        Console.WriteLine($"  Temp:     {activity.AvgTemperatureC?.ToString() ?? "—"}°C avg, {activity.MaxTemperatureC?.ToString() ?? "—"}°C max");
+    if (activity.MinAltitudeFt.HasValue || activity.MaxAltitudeFt.HasValue)
+        Console.WriteLine($"  Altitude: {activity.MinAltitudeFt?.ToString("F0") ?? "—"} to {activity.MaxAltitudeFt?.ToString("F0") ?? "—"} ft");
+    if (activity.AvgTemperatureF.HasValue || activity.MaxTemperatureF.HasValue)
+        Console.WriteLine($"  Temp:     {activity.AvgTemperatureF?.ToString("F0") ?? "—"}°F avg, {activity.MaxTemperatureF?.ToString("F0") ?? "—"}°F max");
     Console.WriteLine($"  Laps:     {activity.Laps.Count}");
 
     Console.WriteLine($"\nRendering PNG report to {outputDirectory}/ ...");

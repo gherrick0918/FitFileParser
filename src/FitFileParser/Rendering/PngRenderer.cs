@@ -169,63 +169,166 @@ public sealed class PngRenderer
         return y + rows * (LineHeight * 2 + SectionGap);
     }
 
+    /// <summary>
+    /// Builds the overview stat tiles. Only tiles with real data (non-dash) are included
+    /// so sport-specific metrics don't clutter reports where they're absent.
+    /// </summary>
     private static IReadOnlyList<(string Label, string Value)> BuildOverviewStats(ActivitySummary activity)
     {
-        return
-        [
-            ("TIME",            FormatElapsed(activity.TotalTimerTime)),
-            ("MOVING TIME",     activity.TotalMovingTime.HasValue
-                                    ? FormatElapsed(activity.TotalMovingTime.Value) : "—"),
-            ("DISTANCE",        activity.TotalDistanceMiles.HasValue
-                                    ? $"{activity.TotalDistanceMiles.Value:F2} mi" : "—"),
-            ("AVG PACE",        activity.AvgPacePerMile.HasValue
-                                    ? FormatPace(activity.AvgPacePerMile.Value) : "—"),
-            ("AVG SPEED",       activity.AvgSpeedMph.HasValue
-                                    ? $"{activity.AvgSpeedMph.Value:F1} mph" : "—"),
-            ("MAX SPEED",       activity.MaxSpeedMph.HasValue
-                                    ? $"{activity.MaxSpeedMph.Value:F1} mph" : "—"),
-            ("AVG HR",          activity.AvgHeartRate.HasValue
-                                    ? $"{activity.AvgHeartRate} bpm" : "—"),
-            ("MAX HR",          activity.MaxHeartRate.HasValue
-                                    ? $"{activity.MaxHeartRate} bpm" : "—"),
-            ("AVG CADENCE",     activity.AvgRunningCadence.HasValue || activity.AvgCadence.HasValue
-                                    ? $"{activity.AvgRunningCadence ?? activity.AvgCadence} spm" : "—"),
-            ("MAX CADENCE",     activity.MaxRunningCadence.HasValue || activity.MaxCadence.HasValue
-                                    ? $"{activity.MaxRunningCadence ?? activity.MaxCadence} spm" : "—"),
-            ("CALORIES",        activity.TotalCalories.HasValue
-                                    ? $"{activity.TotalCalories} kcal" : "—"),
-            ("FAT CALORIES",    activity.TotalFatCalories.HasValue
-                                    ? $"{activity.TotalFatCalories} kcal" : "—"),
-            ("AVG POWER",       activity.AvgPower.HasValue
-                                    ? $"{activity.AvgPower} W" : "—"),
-            ("NP",              activity.NormalizedPower.HasValue
-                                    ? $"{activity.NormalizedPower} W" : "—"),
-            ("TRAINING EFFECT", activity.TotalTrainingEffect.HasValue
-                                    ? $"{activity.TotalTrainingEffect.Value:F1}" : "—"),
-            ("ANAEROBIC TE",    activity.TotalAnaerobicTrainingEffect.HasValue
-                                    ? $"{activity.TotalAnaerobicTrainingEffect.Value:F1}" : "—"),
-            ("TSS",             activity.TrainingStressScore.HasValue
-                                    ? $"{activity.TrainingStressScore.Value:F1}" : "—"),
-            ("INTENSITY FACTOR",activity.IntensityFactor.HasValue
-                                    ? $"{activity.IntensityFactor.Value:F2}" : "—"),
-            ("WORK",            activity.TotalWorkJoules.HasValue
-                                    ? $"{activity.TotalWorkJoules.Value / 1000f:F1} kJ" : "—"),
-            ("STRIDES",         activity.TotalStrides.HasValue
-                                    ? $"{activity.TotalStrides}" : "—"),
-            ("ASCENT",          activity.TotalAscent.HasValue
-                                    ? $"+{activity.TotalAscent} m" : "—"),
-            ("DESCENT",         activity.TotalDescent.HasValue
-                                    ? $"-{activity.TotalDescent} m" : "—"),
-            ("MIN ALTITUDE",    activity.MinAltitudeM.HasValue
-                                    ? $"{activity.MinAltitudeM.Value:F1} m" : "—"),
-            ("MAX ALTITUDE",    activity.MaxAltitudeM.HasValue
-                                    ? $"{activity.MaxAltitudeM.Value:F1} m" : "—"),
-            ("AVG TEMP",        activity.AvgTemperatureC.HasValue
-                                    ? $"{activity.AvgTemperatureC}°C" : "—"),
-            ("MAX TEMP",        activity.MaxTemperatureC.HasValue
-                                    ? $"{activity.MaxTemperatureC}°C" : "—"),
-        ];
-    }
+        var allPossibleStats = new List<(string Label, string? Value)>
+        {
+            // ── Timing ────────────────────────────────────────────────────
+            ("TIME",              FormatElapsed(activity.TotalTimerTime)),
+            ("MOVING TIME",       activity.TotalMovingTime.HasValue
+                                      ? FormatElapsed(activity.TotalMovingTime.Value) : null),
+            ("ELAPSED TIME",      FormatElapsed(activity.TotalElapsedTime)),
+            ("ACTIVE TIME",       activity.ActiveTime.HasValue
+                                      ? FormatElapsed(activity.ActiveTime.Value) : null),
+
+            // ── Distance / Speed / Pace ───────────────────────────────────
+            ("DISTANCE",          activity.TotalDistanceMiles.HasValue
+                                      ? $"{activity.TotalDistanceMiles.Value:F2} mi" : null),
+            ("AVG PACE",          activity.AvgPacePerMile.HasValue
+                                      ? FormatPace(activity.AvgPacePerMile.Value) : null),
+            ("AVG SPEED",         activity.AvgSpeedMph.HasValue
+                                      ? $"{activity.AvgSpeedMph.Value:F1} mph" : null),
+            ("MAX SPEED",         activity.MaxSpeedMph.HasValue
+                                      ? $"{activity.MaxSpeedMph.Value:F1} mph" : null),
+
+            // ── Heart Rate ────────────────────────────────────────────────
+            ("MIN HR",            activity.MinHeartRate.HasValue
+                                      ? $"{activity.MinHeartRate} bpm" : null),
+            ("AVG HR",            activity.AvgHeartRate.HasValue
+                                      ? $"{activity.AvgHeartRate} bpm" : null),
+            ("MAX HR",            activity.MaxHeartRate.HasValue
+                                      ? $"{activity.MaxHeartRate} bpm" : null),
+
+            // ── Cadence ───────────────────────────────────────────────────
+            ("AVG CADENCE",       activity.AvgRunningCadence.HasValue || activity.AvgCadence.HasValue
+                                      ? $"{activity.AvgRunningCadence ?? activity.AvgCadence} spm" : null),
+            ("MAX CADENCE",       activity.MaxRunningCadence.HasValue || activity.MaxCadence.HasValue
+                                      ? $"{activity.MaxRunningCadence ?? activity.MaxCadence} spm" : null),
+
+            // ── Calories ──────────────────────────────────────────────────
+            ("CALORIES",          activity.TotalCalories.HasValue
+                                      ? $"{activity.TotalCalories} kcal" : null),
+            ("FAT CALORIES",      activity.TotalFatCalories.HasValue
+                                      ? $"{activity.TotalFatCalories} kcal" : null),
+
+            // ── Power ─────────────────────────────────────────────────────
+            ("AVG POWER",         activity.AvgPower.HasValue
+                                      ? $"{activity.AvgPower} W" : null),
+            ("MAX POWER",         activity.MaxPower.HasValue
+                                      ? $"{activity.MaxPower} W" : null),
+            ("NP",                activity.NormalizedPower.HasValue
+                                      ? $"{activity.NormalizedPower} W" : null),
+            ("FTP",               activity.ThresholdPower.HasValue
+                                      ? $"{activity.ThresholdPower} W" : null),
+            ("WORK",              activity.TotalWorkJoules.HasValue
+                                      ? $"{activity.TotalWorkJoules.Value / 1000f:F1} kJ" : null),
+
+            // ── Training Load ─────────────────────────────────────────────
+            ("TRAINING EFFECT",   activity.TotalTrainingEffect.HasValue
+                                      ? $"{activity.TotalTrainingEffect.Value:F1}" : null),
+            ("ANAEROBIC TE",      activity.TotalAnaerobicTrainingEffect.HasValue
+                                      ? $"{activity.TotalAnaerobicTrainingEffect.Value:F1}" : null),
+            ("TSS",               activity.TrainingStressScore.HasValue
+                                      ? $"{activity.TrainingStressScore.Value:F1}" : null),
+            ("INTENSITY FACTOR",  activity.IntensityFactor.HasValue
+                                      ? $"{activity.IntensityFactor.Value:F2}" : null),
+            ("TRAINING LOAD",     activity.TrainingLoadPeak.HasValue
+                                      ? $"{activity.TrainingLoadPeak.Value:F1}" : null),
+
+            // ── Elevation (imperial) ──────────────────────────────────────
+            ("ASCENT",            activity.TotalAscentFt.HasValue
+                                      ? $"+{activity.TotalAscentFt.Value:F0} ft" : null),
+            ("DESCENT",           activity.TotalDescentFt.HasValue
+                                      ? $"-{activity.TotalDescentFt.Value:F0} ft" : null),
+            ("MIN ALTITUDE",      activity.MinAltitudeFt.HasValue
+                                      ? $"{activity.MinAltitudeFt.Value:F0} ft" : null),
+            ("MAX ALTITUDE",      activity.MaxAltitudeFt.HasValue
+                                      ? $"{activity.MaxAltitudeFt.Value:F0} ft" : null),
+
+            // ── Temperature (imperial) ────────────────────────────────────
+            ("MIN TEMP",          activity.MinTemperatureF.HasValue
+                                      ? $"{activity.MinTemperatureF.Value:F0}°F" : null),
+            ("AVG TEMP",          activity.AvgTemperatureF.HasValue
+                                      ? $"{activity.AvgTemperatureF.Value:F0}°F" : null),
+            ("MAX TEMP",          activity.MaxTemperatureF.HasValue
+                                      ? $"{activity.MaxTemperatureF.Value:F0}°F" : null),
+
+            // ── Running Form ──────────────────────────────────────────────
+            ("STRIDES",           activity.TotalStrides.HasValue
+                                      ? $"{activity.TotalStrides}" : null),
+            ("VERT OSC",          activity.AvgVerticalOscillationIn.HasValue
+                                      ? $"{activity.AvgVerticalOscillationIn.Value:F2} in" : null),
+            ("STANCE TIME",       activity.AvgStanceTimeMs.HasValue
+                                      ? $"{activity.AvgStanceTimeMs.Value:F0} ms" : null),
+            ("STANCE %",          activity.AvgStanceTimePercent.HasValue
+                                      ? $"{activity.AvgStanceTimePercent.Value:F1}%" : null),
+            ("VERT RATIO",        activity.AvgVerticalRatio.HasValue
+                                      ? $"{activity.AvgVerticalRatio.Value:F1}%" : null),
+            ("STEP LENGTH",       activity.AvgStepLengthFt.HasValue
+                                      ? $"{activity.AvgStepLengthFt.Value:F2} ft" : null),
+            ("AVG GRADE",         activity.AvgGrade.HasValue
+                                      ? $"{activity.AvgGrade.Value:F1}%" : null),
+            ("MAX GRADE",         activity.MaxPosGrade.HasValue
+                                      ? $"{activity.MaxPosGrade.Value:F1}%" : null),
+            ("MIN GRADE",         activity.MaxNegGrade.HasValue
+                                      ? $"{activity.MaxNegGrade.Value:F1}%" : null),
+
+            // ── Cycling ───────────────────────────────────────────────────
+            ("L/R BALANCE",       activity.LeftRightBalance.HasValue
+                                      ? FormatLeftRightBalance(activity.LeftRightBalance.Value) : null),
+            ("L TORQUE EFF",      activity.AvgLeftTorqueEffectiveness.HasValue
+                                      ? $"{activity.AvgLeftTorqueEffectiveness.Value:F1}%" : null),
+            ("R TORQUE EFF",      activity.AvgRightTorqueEffectiveness.HasValue
+                                      ? $"{activity.AvgRightTorqueEffectiveness.Value:F1}%" : null),
+            ("L PEDAL SMOOTH",    activity.AvgLeftPedalSmoothness.HasValue
+                                      ? $"{activity.AvgLeftPedalSmoothness.Value:F1}%" : null),
+            ("R PEDAL SMOOTH",    activity.AvgRightPedalSmoothness.HasValue
+                                      ? $"{activity.AvgRightPedalSmoothness.Value:F1}%" : null),
+            ("PEDAL SMOOTH",      activity.AvgCombinedPedalSmoothness.HasValue
+                                      ? $"{activity.AvgCombinedPedalSmoothness.Value:F1}%" : null),
+
+            // ── Swimming ──────────────────────────────────────────────────
+            ("SWIM STROKE",       !string.IsNullOrWhiteSpace(activity.SwimStroke)
+                                      ? activity.SwimStroke : null),
+            ("POOL LENGTH",       activity.PoolLengthYards.HasValue
+                                      ? $"{activity.PoolLengthYards.Value:F1} yd" : null),
+            ("TOTAL STROKES",     activity.TotalStrokes.HasValue
+                                      ? $"{activity.TotalStrokes}" : null),
+            ("TOTAL CYCLES",      activity.TotalCycles.HasValue
+                                      ? $"{activity.TotalCycles}" : null),
+            ("STROKE DIST",       activity.AvgStrokeDistanceYards.HasValue
+                                      ? $"{activity.AvgStrokeDistanceYards.Value:F2} yd" : null),
+
+            // ── Physiology / Wellness ─────────────────────────────────────
+            ("AVG RESPIRATION",   activity.AvgRespirationRate.HasValue
+                                      ? $"{activity.AvgRespirationRate.Value:F1} br/m" : null),
+            ("AVG SPO2",          activity.AvgSpo2.HasValue
+                                      ? $"{activity.AvgSpo2.Value:F1}%" : null),
+            ("HRV (RMSSD)",       activity.RmssdHrv.HasValue
+                                      ? $"{activity.RmssdHrv.Value:F1} ms" : null),
+
+            // ── Workout Feedback ──────────────────────────────────────────
+            ("WORKOUT FEEL",      activity.WorkoutFeel.HasValue
+                                      ? $"{activity.WorkoutFeel}" : null),
+            ("WORKOUT RPE",       activity.WorkoutRpe.HasValue
+                                      ? $"{activity.WorkoutRpe}/20" : null),
+
+            // ── Meta ──────────────────────────────────────────────────────
+            ("LAPS",              activity.NumLaps.HasValue
+                                      ? $"{activity.NumLaps}" : null),
+            ("PROFILE",           !string.IsNullOrWhiteSpace(activity.SportProfileName)
+                                      ? activity.SportProfileName : null),
+        };
+
+        // Only return tiles that have actual data
+        return allPossibleStats
+            .Where(stat => stat.Value is not null)
+            .Select(stat => (stat.Label, Value: stat.Value!))
+            .ToList();    }
 
     // -----------------------------------------------------------------
     // Lap table
@@ -240,18 +343,23 @@ public sealed class PngRenderer
         DrawText(canvas, "LAP DETAILS", Margin, y + 18f, ColorAccent, 14f, bold: true);
         y += 28f;
 
+        // 14 columns – fractions must sum to 1.0
         var cols = new (string Header, float Fraction, bool Right)[]
         {
-            ("LAP",     0.06f, false),
-            ("TIME",    0.14f, true),
-            ("DIST mi", 0.12f, true),
-            ("PACE",    0.12f, true),
-            ("AVG HR",  0.10f, true),
-            ("MAX HR",  0.10f, true),
-            ("AVG PWR", 0.10f, true),
-            ("NP",      0.09f, true),
-            ("↑",       0.08f, true),
-            ("↓",       0.09f, true),
+            ("LAP",      0.04f, false),
+            ("TIME",     0.10f, true),
+            ("DIST mi",  0.10f, true),
+            ("PACE",     0.11f, true),
+            ("SPD mph",  0.08f, true),
+            ("AVG HR",   0.07f, true),
+            ("MAX HR",   0.07f, true),
+            ("CAD",      0.06f, true),
+            ("AVG PWR",  0.08f, true),
+            ("NP",       0.07f, true),
+            ("↑ ft",     0.06f, true),
+            ("↓ ft",     0.06f, true),
+            ("CALS",     0.05f, true),
+            ("TEMP °F",  0.05f, true),
         };
 
         float tableWidth = PageWidthPx - Margin * 2;
@@ -279,18 +387,24 @@ public sealed class PngRenderer
             var lap = activity.Laps[lapIndices[li]];
             if (li % 2 == 1) DrawRowBackground(canvas, y, ColorRowAlt);
 
+            var cadence = lap.AvgRunningCadence ?? lap.AvgCadence;
+
             var values = new[]
             {
                 lap.LapNumber.ToString(),
                 FormatElapsed(lap.TotalTimerTime),
-                lap.TotalDistanceMiles.HasValue ? $"{lap.TotalDistanceMiles.Value:F2}" : "—",
-                lap.AvgPacePerMile.HasValue    ? FormatPace(lap.AvgPacePerMile.Value) : "—",
-                lap.AvgHeartRate.HasValue    ? lap.AvgHeartRate.ToString() ?? "—" : "—",
-                lap.MaxHeartRate.HasValue    ? lap.MaxHeartRate.ToString() ?? "—" : "—",
-                lap.AvgPower.HasValue        ? lap.AvgPower.ToString() ?? "—" : "—",
-                lap.NormalizedPower.HasValue ? lap.NormalizedPower.ToString() ?? "—" : "—",
-                lap.TotalAscent.HasValue     ? $"+{lap.TotalAscent}" : "—",
-                lap.TotalDescent.HasValue    ? $"-{lap.TotalDescent}" : "—",
+                lap.TotalDistanceMiles.HasValue  ? $"{lap.TotalDistanceMiles.Value:F2}" : "—",
+                lap.AvgPacePerMile.HasValue      ? FormatPace(lap.AvgPacePerMile.Value) : "—",
+                lap.AvgSpeedMph.HasValue         ? $"{lap.AvgSpeedMph.Value:F1}" : "—",
+                lap.AvgHeartRate.HasValue        ? lap.AvgHeartRate.ToString()! : "—",
+                lap.MaxHeartRate.HasValue        ? lap.MaxHeartRate.ToString()! : "—",
+                cadence.HasValue                 ? cadence.ToString()! : "—",
+                lap.AvgPower.HasValue            ? lap.AvgPower.ToString()! : "—",
+                lap.NormalizedPower.HasValue     ? lap.NormalizedPower.ToString()! : "—",
+                lap.TotalAscentFt.HasValue       ? $"+{lap.TotalAscentFt.Value:F0}" : "—",
+                lap.TotalDescentFt.HasValue      ? $"-{lap.TotalDescentFt.Value:F0}" : "—",
+                lap.TotalCalories.HasValue       ? lap.TotalCalories.ToString()! : "—",
+                lap.AvgTemperatureF.HasValue     ? $"{lap.AvgTemperatureF.Value:F0}°" : "—",
             };
 
             for (int c = 0; c < cols.Length; c++)
@@ -373,4 +487,17 @@ public sealed class PngRenderer
 
     private static string FormatPace(TimeSpan pace) =>
         $"{(int)pace.TotalMinutes}:{pace.Seconds:D2} /mi";
+
+    /// <summary>
+    /// Decodes the FIT left-right balance raw value (bit 15 = right dominant,
+    /// bits 14:0 = percentage × 100) into a human-readable string.
+    /// </summary>
+    private static string FormatLeftRightBalance(ushort raw)
+    {
+        bool rightDominant = (raw & 0x8000) != 0;
+        float pct = (raw & 0x7FFF) / 100f;
+        float leftPct = rightDominant ? 100f - pct : pct;
+        float rightPct = 100f - leftPct;
+        return $"L{leftPct:F0}%/R{rightPct:F0}%";
+    }
 }
