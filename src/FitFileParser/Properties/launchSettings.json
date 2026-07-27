@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "FitFileParser": {
+      "commandName": "Project",
+      "commandLineArgs": "\"C:\\dev\\FitFileParser\\input\\23753616494_ACTIVITY.fit\""
+    }
+  }
+}
