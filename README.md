@@ -41,8 +41,8 @@ Each report includes:
 
 | Section | Fields |
 |---|---|
-| **Overview** | Sport, date, total time, distance, avg pace, avg/max HR, calories, avg power, training effect |
-| **Lap table** | Lap number, time, distance, pace, avg HR, max HR, avg power, normalized power, ascent, descent |
+| **Overview** | Sport, date, total/moving time, distance (mi), pace (/mi), avg/max speed, avg/max HR, cadence, calories/fat calories, avg/NP power, training effect, anaerobic TE, TSS, intensity factor, work, strides, ascent/descent, altitude and temperature ranges |
+| **Lap table** | Lap number, time, distance (mi), pace (/mi), avg HR, max HR, avg power, normalized power, ascent, descent |
 
 ## Project structure
 
