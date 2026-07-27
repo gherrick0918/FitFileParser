@@ -153,9 +153,9 @@ public sealed class PngRenderer
 
         const int cols = 4;
         float colWidth = (PageWidthPx - Margin * 2) / cols;
-        int rows = (int)Math.Ceiling(stats.Length / (double)cols);
+        int rows = (int)Math.Ceiling(stats.Count / (double)cols);
 
-        for (int i = 0; i < stats.Length; i++)
+        for (int i = 0; i < stats.Count; i++)
         {
             int col = i % cols;
             int row = i / cols;
