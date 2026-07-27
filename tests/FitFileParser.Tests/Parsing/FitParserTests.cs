@@ -36,7 +36,7 @@ public sealed class FitParserTests
     }
 
     [Fact]
-    public void Parse_ValidActivity_ReturnsCorrectDistanceKm()
+    public void Parse_ValidActivity_ReturnsCorrectDistanceMiles()
     {
         using var stream = new FitFileBuilder()
             .WithDistance(10_000f)
@@ -44,8 +44,8 @@ public sealed class FitParserTests
 
         var summary = _parser.Parse(stream);
 
-        Assert.NotNull(summary.TotalDistanceKm);
-        Assert.Equal(10f, summary.TotalDistanceKm!.Value, precision: 2);
+        Assert.NotNull(summary.TotalDistanceMiles);
+        Assert.Equal(6.21f, summary.TotalDistanceMiles!.Value, precision: 2);
     }
 
     [Fact]
@@ -124,17 +124,17 @@ public sealed class FitParserTests
     // ------------------------------------------------------------------
 
     [Fact]
-    public void Parse_ActivityWithSpeed_ReturnsPacePerKm()
+    public void Parse_ActivityWithSpeed_ReturnsPacePerMile()
     {
-        // 2.778 m/s ≈ 10 km/h → 6:00/km
+        // 2.778 m/s ≈ 10 km/h → ~9:39/mi
         using var stream = new FitFileBuilder()
             .WithAvgSpeed(2.778f)
             .Build();
 
         var summary = _parser.Parse(stream);
 
-        Assert.NotNull(summary.AvgPacePerKm);
-        Assert.InRange(summary.AvgPacePerKm!.Value.TotalSeconds, 355, 365); // ~6:00/km
+        Assert.NotNull(summary.AvgPacePerMile);
+        Assert.InRange(summary.AvgPacePerMile!.Value.TotalSeconds, 575, 585); // ~9:39/mi
     }
 
     // ------------------------------------------------------------------
@@ -179,8 +179,8 @@ public sealed class FitParserTests
 
         var summary = _parser.Parse(stream);
 
-        Assert.Equal(1f, summary.Laps[0].TotalDistanceKm!.Value, precision: 2);
-        Assert.Equal(2f, summary.Laps[1].TotalDistanceKm!.Value, precision: 2);
+        Assert.Equal(0.62f, summary.Laps[0].TotalDistanceMiles!.Value, precision: 2);
+        Assert.Equal(1.24f, summary.Laps[1].TotalDistanceMiles!.Value, precision: 2);
     }
 
     [Fact]

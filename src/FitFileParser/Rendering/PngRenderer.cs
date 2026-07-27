@@ -56,7 +56,7 @@ public sealed class PngRenderer
 
     private static List<IReadOnlyList<int>> Paginate(ActivitySummary activity)
     {
-        float overview = OverviewBlockHeight() + SectionGap;
+        float overview = OverviewBlockHeight(activity) + SectionGap;
         float lapHead = LapTableHeaderHeight();
         float rowH = LapRowHeight();
         float usable = PageHeightPx - Margin * 2 - HeaderHeight - SectionGap;
@@ -140,34 +140,22 @@ public sealed class PngRenderer
     // Overview stats block
     // -----------------------------------------------------------------
 
-    private static float OverviewBlockHeight() => (LineHeight * 2 + SectionGap) * 2;
+    private static float OverviewBlockHeight(ActivitySummary activity)
+    {
+        const int cols = 4;
+        int rows = (int)Math.Ceiling(BuildOverviewStats(activity).Count / (double)cols);
+        return rows * (LineHeight * 2 + SectionGap);
+    }
 
     private static float DrawOverviewBlock(SKCanvas canvas, ActivitySummary activity, float y)
     {
-        var stats = new (string Label, string Value)[]
-        {
-            ("TIME",            FormatElapsed(activity.TotalTimerTime)),
-            ("DISTANCE",        activity.TotalDistanceKm.HasValue
-                                    ? $"{activity.TotalDistanceKm.Value:F2} km" : "—"),
-            ("AVG PACE",        activity.AvgPacePerKm.HasValue
-                                    ? FormatPace(activity.AvgPacePerKm.Value) : "—"),
-            ("AVG HR",          activity.AvgHeartRate.HasValue
-                                    ? $"{activity.AvgHeartRate} bpm" : "—"),
-            ("MAX HR",          activity.MaxHeartRate.HasValue
-                                    ? $"{activity.MaxHeartRate} bpm" : "—"),
-            ("CALORIES",        activity.TotalCalories.HasValue
-                                    ? $"{activity.TotalCalories} kcal" : "—"),
-            ("AVG POWER",       activity.AvgPower.HasValue
-                                    ? $"{activity.AvgPower} W" : "—"),
-            ("TRAINING EFFECT", activity.TotalTrainingEffect.HasValue
-                                    ? $"{activity.TotalTrainingEffect.Value:F1}" : "—"),
-        };
+        var stats = BuildOverviewStats(activity);
 
         const int cols = 4;
         float colWidth = (PageWidthPx - Margin * 2) / cols;
-        int rows = (int)Math.Ceiling(stats.Length / (double)cols);
+        int rows = (int)Math.Ceiling(stats.Count / (double)cols);
 
-        for (int i = 0; i < stats.Length; i++)
+        for (int i = 0; i < stats.Count; i++)
         {
             int col = i % cols;
             int row = i / cols;
@@ -179,6 +167,64 @@ public sealed class PngRenderer
         }
 
         return y + rows * (LineHeight * 2 + SectionGap);
+    }
+
+    private static IReadOnlyList<(string Label, string Value)> BuildOverviewStats(ActivitySummary activity)
+    {
+        return
+        [
+            ("TIME",            FormatElapsed(activity.TotalTimerTime)),
+            ("MOVING TIME",     activity.TotalMovingTime.HasValue
+                                    ? FormatElapsed(activity.TotalMovingTime.Value) : "—"),
+            ("DISTANCE",        activity.TotalDistanceMiles.HasValue
+                                    ? $"{activity.TotalDistanceMiles.Value:F2} mi" : "—"),
+            ("AVG PACE",        activity.AvgPacePerMile.HasValue
+                                    ? FormatPace(activity.AvgPacePerMile.Value) : "—"),
+            ("AVG SPEED",       activity.AvgSpeedMph.HasValue
+                                    ? $"{activity.AvgSpeedMph.Value:F1} mph" : "—"),
+            ("MAX SPEED",       activity.MaxSpeedMph.HasValue
+                                    ? $"{activity.MaxSpeedMph.Value:F1} mph" : "—"),
+            ("AVG HR",          activity.AvgHeartRate.HasValue
+                                    ? $"{activity.AvgHeartRate} bpm" : "—"),
+            ("MAX HR",          activity.MaxHeartRate.HasValue
+                                    ? $"{activity.MaxHeartRate} bpm" : "—"),
+            ("AVG CADENCE",     activity.AvgRunningCadence.HasValue || activity.AvgCadence.HasValue
+                                    ? $"{activity.AvgRunningCadence ?? activity.AvgCadence} spm" : "—"),
+            ("MAX CADENCE",     activity.MaxRunningCadence.HasValue || activity.MaxCadence.HasValue
+                                    ? $"{activity.MaxRunningCadence ?? activity.MaxCadence} spm" : "—"),
+            ("CALORIES",        activity.TotalCalories.HasValue
+                                    ? $"{activity.TotalCalories} kcal" : "—"),
+            ("FAT CALORIES",    activity.TotalFatCalories.HasValue
+                                    ? $"{activity.TotalFatCalories} kcal" : "—"),
+            ("AVG POWER",       activity.AvgPower.HasValue
+                                    ? $"{activity.AvgPower} W" : "—"),
+            ("NP",              activity.NormalizedPower.HasValue
+                                    ? $"{activity.NormalizedPower} W" : "—"),
+            ("TRAINING EFFECT", activity.TotalTrainingEffect.HasValue
+                                    ? $"{activity.TotalTrainingEffect.Value:F1}" : "—"),
+            ("ANAEROBIC TE",    activity.TotalAnaerobicTrainingEffect.HasValue
+                                    ? $"{activity.TotalAnaerobicTrainingEffect.Value:F1}" : "—"),
+            ("TSS",             activity.TrainingStressScore.HasValue
+                                    ? $"{activity.TrainingStressScore.Value:F1}" : "—"),
+            ("INTENSITY FACTOR",activity.IntensityFactor.HasValue
+                                    ? $"{activity.IntensityFactor.Value:F2}" : "—"),
+            ("WORK",            activity.TotalWorkJoules.HasValue
+                                    ? $"{activity.TotalWorkJoules.Value / 1000f:F1} kJ" : "—"),
+            ("STRIDES",         activity.TotalStrides.HasValue
+                                    ? $"{activity.TotalStrides}" : "—"),
+            ("ASCENT",          activity.TotalAscent.HasValue
+                                    ? $"+{activity.TotalAscent} m" : "—"),
+            ("DESCENT",         activity.TotalDescent.HasValue
+                                    ? $"-{activity.TotalDescent} m" : "—"),
+            ("MIN ALTITUDE",    activity.MinAltitudeM.HasValue
+                                    ? $"{activity.MinAltitudeM.Value:F1} m" : "—"),
+            ("MAX ALTITUDE",    activity.MaxAltitudeM.HasValue
+                                    ? $"{activity.MaxAltitudeM.Value:F1} m" : "—"),
+            ("AVG TEMP",        activity.AvgTemperatureC.HasValue
+                                    ? $"{activity.AvgTemperatureC}°C" : "—"),
+            ("MAX TEMP",        activity.MaxTemperatureC.HasValue
+                                    ? $"{activity.MaxTemperatureC}°C" : "—"),
+        ];
     }
 
     // -----------------------------------------------------------------
@@ -198,7 +244,7 @@ public sealed class PngRenderer
         {
             ("LAP",     0.06f, false),
             ("TIME",    0.14f, true),
-            ("DIST km", 0.12f, true),
+            ("DIST mi", 0.12f, true),
             ("PACE",    0.12f, true),
             ("AVG HR",  0.10f, true),
             ("MAX HR",  0.10f, true),
@@ -237,8 +283,8 @@ public sealed class PngRenderer
             {
                 lap.LapNumber.ToString(),
                 FormatElapsed(lap.TotalTimerTime),
-                lap.TotalDistanceKm.HasValue ? $"{lap.TotalDistanceKm.Value:F2}" : "—",
-                lap.AvgPacePerKm.HasValue    ? FormatPace(lap.AvgPacePerKm.Value) : "—",
+                lap.TotalDistanceMiles.HasValue ? $"{lap.TotalDistanceMiles.Value:F2}" : "—",
+                lap.AvgPacePerMile.HasValue    ? FormatPace(lap.AvgPacePerMile.Value) : "—",
                 lap.AvgHeartRate.HasValue    ? lap.AvgHeartRate.ToString() ?? "—" : "—",
                 lap.MaxHeartRate.HasValue    ? lap.MaxHeartRate.ToString() ?? "—" : "—",
                 lap.AvgPower.HasValue        ? lap.AvgPower.ToString() ?? "—" : "—",
@@ -326,5 +372,5 @@ public sealed class PngRenderer
             : $"{t.Minutes}:{t.Seconds:D2}";
 
     private static string FormatPace(TimeSpan pace) =>
-        $"{(int)pace.TotalMinutes}:{pace.Seconds:D2} /km";
+        $"{(int)pace.TotalMinutes}:{pace.Seconds:D2} /mi";
 }
