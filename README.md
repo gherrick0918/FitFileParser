@@ -13,6 +13,7 @@ platforms.
 ## Requirements
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9)
+- .NET Android workload (`dotnet workload install android`) for building the Android app project
 
 ## Build
 
@@ -54,7 +55,8 @@ FitFileParser/
 │   │   ├── Models/             # Normalized activity and lap models
 │   │   ├── Parsing/            # FIT file decoding via Garmin FIT SDK
 │   │   └── Rendering/          # PNG generation via SkiaSharp
-│   └── FitFileParser.Mobile/   # Android portrait-oriented report generation API
+│   ├── FitFileParser.Mobile/   # Android portrait-oriented report generation API
+│   └── FitFileParser.AndroidApp/ # Android app wrapper project
 ├── tests/
 │   └── FitFileParser.Tests/    # xUnit tests for parsing and rendering
 ├── samples/                    # Sanitized sample .fit files
@@ -69,6 +71,26 @@ Use `PngRenderer.ReportLayout.AndroidPortrait` for 1080x1920 portrait output.
 `src/FitFileParser.Mobile` provides `AndroidPortraitReportGenerator`, which reuses
 the existing parser and renderer pipeline to avoid duplication between desktop/CLI
 and mobile scenarios.
+
+`src/FitFileParser.AndroidApp` is a native .NET for Android app project that lets
+you pick a `.fit` file and generates portrait report PNG files into app-local
+storage (`/data/data/<applicationId>/files/reports/...`).
+
+### Build/package Android app
+
+```bash
+dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -f net9.0-android
+```
+
+Create a release package:
+
+```bash
+# APK
+dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=apk
+
+# AAB
+dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=aab
+```
 
 ## Run tests
 

@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj" />
     <Project Path="src/FitFileParser.Mobile/FitFileParser.Mobile.csproj" />
     <Project Path="src/FitFileParser/FitFileParser.csproj" />
   </Folder>

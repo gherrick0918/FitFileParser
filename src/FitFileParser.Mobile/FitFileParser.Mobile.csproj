@@ -1,13 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <ProjectReference Include="..\FitFileParser\FitFileParser.csproj" />
-  </ItemGroup>
-
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\FitFileParser\Models\ActivitySummary.cs" Link="Shared\Models\ActivitySummary.cs" />
+    <Compile Include="..\FitFileParser\Models\LapSummary.cs" Link="Shared\Models\LapSummary.cs" />
+    <Compile Include="..\FitFileParser\Parsing\FitParseException.cs" Link="Shared\Parsing\FitParseException.cs" />
+    <Compile Include="..\FitFileParser\Parsing\FitParser.cs" Link="Shared\Parsing\FitParser.cs" />
+    <Compile Include="..\FitFileParser\Rendering\PngRenderer.cs" Link="Shared\Rendering\PngRenderer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Garmin.FIT.Sdk" Version="21.205.0" />
+    <PackageReference Include="SkiaSharp" Version="4.150.1" />
+  </ItemGroup>
 
 </Project>
