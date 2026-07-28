@@ -98,6 +98,18 @@ public sealed class PngRendererTests : IDisposable
         Assert.All(pages, AssertLetterSize);
     }
 
+    [Fact]
+    public void Render_AndroidPortraitLayout_UsesPortraitDimensions()
+    {
+        var renderer = new PngRenderer(PngRenderer.ReportLayout.AndroidPortrait);
+        var activity = ParseActivity(new FitFileBuilder());
+
+        var pages = renderer.Render(activity, _outputDir);
+
+        Assert.NotEmpty(pages);
+        AssertImageDimensions(pages[0], 1080, 1920);
+    }
+
     // ------------------------------------------------------------------
     // Output path behaviour
     // ------------------------------------------------------------------
@@ -163,6 +175,11 @@ public sealed class PngRendererTests : IDisposable
 
     private static void AssertLetterSize(string pngPath)
     {
+        AssertImageDimensions(pngPath, 1275, 1650);
+    }
+
+    private static void AssertImageDimensions(string pngPath, int expectedWidth, int expectedHeight)
+    {
         using var fs = File.OpenRead(pngPath);
         // Read PNG IHDR chunk: bytes 16-23 contain width and height as big-endian uint32
         fs.Seek(16, SeekOrigin.Begin);
@@ -171,8 +188,8 @@ public sealed class PngRendererTests : IDisposable
         int width  = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
         int height = (buf[4] << 24) | (buf[5] << 16) | (buf[6] << 8) | buf[7];
 
-        Assert.Equal(1275, width);
-        Assert.Equal(1650, height);
+        Assert.Equal(expectedWidth, width);
+        Assert.Equal(expectedHeight, height);
     }
 
     public void Dispose()
