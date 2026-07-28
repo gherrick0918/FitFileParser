@@ -1,6 +1,7 @@
 using Android.App;
 using Android.Content;
 using Android.OS;
+using Android.Views.Accessibility;
 using Android.Widget;
 using FitFileParser.Mobile;
 
@@ -28,7 +29,10 @@ public class MainActivity : Activity
 
         if (savedInstanceState is null)
         {
-            OpenFitFilePicker();
+            if (ShouldAutoLaunchPicker())
+            {
+                OpenFitFilePicker();
+            }
         }
     }
 
@@ -86,6 +90,12 @@ public class MainActivity : Activity
             Android.Util.Log.Error(nameof(MainActivity), ex, "No file picker activity found.");
             return false;
         }
+    }
+
+    private bool ShouldAutoLaunchPicker()
+    {
+        var accessibilityManager = GetSystemService(AccessibilityService) as AccessibilityManager;
+        return accessibilityManager?.IsTouchExplorationEnabled != true;
     }
 
     private async Task GenerateReportAsync(Android.Net.Uri fitFileUri)
