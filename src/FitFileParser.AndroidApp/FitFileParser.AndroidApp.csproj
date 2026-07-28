@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationId>com.gherrick0918.fitfileparser</ApplicationId>
     <ApplicationTitle>Fit File Parser</ApplicationTitle>
-    <ApplicationVersion>2</ApplicationVersion>
-    <ApplicationDisplayVersion>1.01</ApplicationDisplayVersion>
+    <ApplicationVersion>3</ApplicationVersion>
+    <ApplicationDisplayVersion>1.02</ApplicationDisplayVersion>
     <!--
       Enables trim analyzers and full trimming during Release mode.
       To learn more, see: https://learn.microsoft.com/dotnet/core/deploying/trimming/trimming-options#trimming-granularity
