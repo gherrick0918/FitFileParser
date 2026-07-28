@@ -28,7 +28,6 @@ public class MainActivity : Activity
 
         if (savedInstanceState is null)
         {
-            SetStatus(GetString(Resource.String.status_launching_picker));
             OpenFitFilePicker();
         }
     }
@@ -55,6 +54,7 @@ public class MainActivity : Activity
     {
         if (TryLaunchPicker(Intent.ActionOpenDocument, addOpenableCategory: true))
         {
+            SetStatus(GetString(Resource.String.status_launching_picker));
             return;
         }
 
@@ -78,8 +78,7 @@ public class MainActivity : Activity
             }
 
             intent.SetType("*/*");
-            var chooser = Intent.CreateChooser(intent, GetString(Resource.String.select_fit_file));
-            StartActivityForResult(chooser, OpenDocumentRequestCode);
+            StartActivityForResult(intent, OpenDocumentRequestCode);
             return true;
         }
         catch (ActivityNotFoundException ex)
