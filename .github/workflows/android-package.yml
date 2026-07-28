@@ -1,0 +1,52 @@
+name: Android Package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: Build Android Packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android workload
+        run: dotnet workload install android
+
+      - name: Restore
+        run: dotnet restore src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj
+
+      - name: Publish APK
+        run: dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=apk
+
+      - name: Publish AAB
+        run: dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=aab
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: src/FitFileParser.AndroidApp/bin/Release/net9.0-android/publish/*.apk
+          if-no-files-found: error
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: src/FitFileParser.AndroidApp/bin/Release/net9.0-android/publish/*.aab
+          if-no-files-found: error

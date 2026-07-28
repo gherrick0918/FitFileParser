@@ -22,6 +22,15 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android workload
+        run: dotnet workload install android
+
       - name: Restore
         run: dotnet restore FitFileParser.slnx
 
