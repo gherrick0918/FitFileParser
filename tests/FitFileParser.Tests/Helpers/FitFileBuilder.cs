@@ -24,6 +24,7 @@ internal sealed class FitFileBuilder
     private readonly List<StrengthSetSpec> _strengthSets = [];
     private bool _corruptCrc = false;
     private bool _truncate = false;
+    private bool _setsOnly = false;
 
     public FitFileBuilder WithSport(Sport sport, SubSport sub = SubSport.Generic)
     {
@@ -57,11 +58,9 @@ internal sealed class FitFileBuilder
     /// <param name="reps">Number of repetitions.</param>
     /// <param name="weightKg">Load in kilograms (pass 0 for bodyweight).</param>
     /// <param name="category">FIT ExerciseCategory constant (e.g. <see cref="ExerciseCategory.Squat"/>).</param>
-    private bool _setsOnly = false;
-
     /// <summary>
     /// When set, strength sets are written as <see cref="SetMesg"/> only — no paired
-    /// <see cref="LapMesg"/> is emitted. This mirrors the behaviour of some Garmin
+    /// <see cref="LapMesg"/> is emitted. This mirrors the behavior of some Garmin
     /// firmware versions that omit lap records for strength training activities.
     /// </summary>
     public FitFileBuilder WithSetsOnly() { _setsOnly = true; return this; }

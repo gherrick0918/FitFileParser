@@ -427,9 +427,12 @@ public sealed class FitParser
     {
         if (set is null)
         {
-            isActiveSet = null; numReps = null;
-            weightKg = null; weightLbs = null;
-            exerciseCategoryName = null; exerciseName = null;
+            isActiveSet = null;
+            numReps = null;
+            weightKg = null;
+            weightLbs = null;
+            exerciseCategoryName = null;
+            exerciseName = null;
             return;
         }
 
