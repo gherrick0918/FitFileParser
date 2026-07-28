@@ -1,6 +1,8 @@
+using Dynastream.Fit;
 using FitFileParser.Rendering;
 using FitFileParser.Tests.Helpers;
 using FitFileParser.Parsing;
+using SysFile = System.IO.File;
 
 namespace FitFileParser.Tests.Rendering;
 
@@ -32,7 +34,7 @@ public sealed class PngRendererTests : IDisposable
         var pages = _renderer.Render(activity, _outputDir);
 
         foreach (var page in pages)
-            Assert.True(File.Exists(page), $"Expected PNG file: {page}");
+            Assert.True(SysFile.Exists(page), $"Expected PNG file: {page}");
     }
 
     [Fact]
@@ -140,6 +142,45 @@ public sealed class PngRendererTests : IDisposable
     }
 
     // ------------------------------------------------------------------
+    // Strength training rendering
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Render_StrengthTrainingActivity_ProducesPngFile()
+    {
+        var builder = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .AddStrengthSet(60f, reps: 10, weightKg: 60f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.BarbellBackSquat)
+            .AddStrengthSet(60f, reps: 8, weightKg: 80f,
+                            category: Dynastream.Fit.ExerciseCategory.BenchPress,
+                            categorySubtype: Dynastream.Fit.BenchPressExerciseName.BarbellBenchPress)
+            .AddStrengthSet(30f, reps: 0, weightKg: 0f, isRest: true);
+
+        var activity = ParseActivity(builder);
+        var pages = _renderer.Render(activity, _outputDir);
+
+        Assert.NotEmpty(pages);
+        Assert.All(pages, p => Assert.True(SysFile.Exists(p)));
+    }
+
+    [Fact]
+    public void Render_StrengthTrainingActivity_ProducesLetterSizeOutput()
+    {
+        var builder = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .AddStrengthSet(60f, reps: 10, weightKg: 60f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.BarbellBackSquat);
+
+        var activity = ParseActivity(builder);
+        var pages = _renderer.Render(activity, _outputDir);
+
+        AssertLetterSize(pages[0]);
+    }
+
+    // ------------------------------------------------------------------
     // Null / invalid argument handling
     // ------------------------------------------------------------------
 
@@ -180,7 +221,7 @@ public sealed class PngRendererTests : IDisposable
 
     private static void AssertImageDimensions(string pngPath, int expectedWidth, int expectedHeight)
     {
-        using var fs = File.OpenRead(pngPath);
+        using var fs = SysFile.OpenRead(pngPath);
         // Read PNG IHDR chunk: bytes 16-23 contain width and height as big-endian uint32
         fs.Seek(16, SeekOrigin.Begin);
         var buf = new byte[8];

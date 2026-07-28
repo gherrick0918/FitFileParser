@@ -241,6 +241,101 @@ public sealed class FitParserTests
     }
 
     // ------------------------------------------------------------------
+    // Strength training
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Parse_StrengthTrainingWithSets_ReturnsCorrectSetCount()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .AddStrengthSet(60f, reps: 10, weightKg: 60f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.BarbellBackSquat)
+            .AddStrengthSet(60f, reps: 8, weightKg: 80f,
+                            category: Dynastream.Fit.ExerciseCategory.BenchPress,
+                            categorySubtype: Dynastream.Fit.BenchPressExerciseName.BarbellBenchPress)
+            .AddStrengthSet(30f, reps: 0, weightKg: 0f, isRest: true)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+
+        Assert.Equal(3, summary.Laps.Count);
+    }
+
+    [Fact]
+    public void Parse_StrengthTrainingWithSets_ReturnsRepsAndWeight()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .AddStrengthSet(60f, reps: 12, weightKg: 50f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.BarbellBackSquat)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+        var lap = summary.Laps[0];
+
+        Assert.Equal((ushort)12, lap.NumReps);
+        Assert.NotNull(lap.WeightKg);
+        Assert.Equal(50f, lap.WeightKg!.Value, precision: 1);
+        Assert.NotNull(lap.WeightLbs);
+        Assert.InRange(lap.WeightLbs!.Value, 110f, 112f); // 50 kg ≈ 110.23 lbs
+    }
+
+    [Fact]
+    public void Parse_StrengthTrainingWithSets_ResolvesExerciseName()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .AddStrengthSet(60f, reps: 10, weightKg: 60f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.BarbellBackSquat)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+        var lap = summary.Laps[0];
+
+        Assert.NotNull(lap.ExerciseCategoryName);
+        Assert.Contains("Squat", lap.ExerciseCategoryName, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(lap.ExerciseName);
+        Assert.Contains("Barbell", lap.ExerciseName, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Back Squat", lap.ExerciseName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Parse_StrengthTrainingRestSet_IsMarkedAsRest()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .AddStrengthSet(30f, reps: 0, weightKg: 0f, isRest: true)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+        var lap = summary.Laps[0];
+
+        Assert.NotNull(lap.IsActiveSet);
+        Assert.False(lap.IsActiveSet!.Value);
+    }
+
+    [Fact]
+    public void Parse_StrengthTrainingActiveSet_IsMarkedAsActive()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .AddStrengthSet(60f, reps: 10, weightKg: 60f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.BarbellBackSquat)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+        var lap = summary.Laps[0];
+
+        Assert.NotNull(lap.IsActiveSet);
+        Assert.True(lap.IsActiveSet!.Value);
+    }
+
+    // ------------------------------------------------------------------
     // Error cases: corrupt / invalid files
     // ------------------------------------------------------------------
 
