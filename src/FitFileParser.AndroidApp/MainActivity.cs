@@ -95,7 +95,12 @@ public class MainActivity : Activity
     private bool ShouldAutoLaunchPicker()
     {
         var accessibilityManager = GetSystemService(AccessibilityService) as AccessibilityManager;
-        return accessibilityManager?.IsTouchExplorationEnabled != true;
+        if (accessibilityManager is null)
+        {
+            return false;
+        }
+
+        return !accessibilityManager.IsTouchExplorationEnabled;
     }
 
     private async Task GenerateReportAsync(Android.Net.Uri fitFileUri)
