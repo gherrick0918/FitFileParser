@@ -39,12 +39,19 @@ public class MainActivity : Activity
 
     private void OpenFitFilePicker()
     {
-        var intent = new Intent(Intent.ActionOpenDocument);
-        intent.AddCategory(Intent.CategoryOpenable);
-        intent.SetType("*/*");
-        intent.PutExtra(Intent.ExtraMimeTypes, new[] { "application/octet-stream" });
+        try
+        {
+            var intent = new Intent(Intent.ActionOpenDocument);
+            intent.AddCategory(Intent.CategoryOpenable);
+            intent.SetType("*/*");
 
-        StartActivityForResult(intent, OpenDocumentRequestCode);
+            StartActivityForResult(intent, OpenDocumentRequestCode);
+        }
+        catch (ActivityNotFoundException ex)
+        {
+            Android.Util.Log.Error(nameof(MainActivity), ex, "No file manager activity found.");
+            SetStatus(GetString(Resource.String.status_no_file_manager));
+        }
     }
 
     private async Task GenerateReportAsync(Android.Net.Uri fitFileUri)
