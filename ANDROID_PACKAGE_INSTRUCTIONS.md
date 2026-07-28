@@ -9,6 +9,7 @@ Use the steps below to generate installable Android packages.
 ## Prerequisites
 
 1. Install [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10) (`10.0.x`).
+   - Repository baseline is pinned in `global.json` (`10.0.110`).
 2. Install Java 17 (required by Android tooling).
 3. Install Android workload:
 
@@ -38,13 +39,19 @@ Store the resulting `release.keystore` file securely — **do not commit it to s
 
 From repository root:
 
-1. Restore:
+1. Clean stale outputs (recommended after framework changes):
+
+   ```bash
+   dotnet clean src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release
+   ```
+
+2. Restore:
 
    ```bash
    dotnet restore src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj
    ```
 
-2. Build release app:
+3. Build release app:
 
    ```bash
    dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net10.0-android
@@ -53,7 +60,7 @@ From repository root:
    > Important: do not add a trailing slash or backslash after `net10.0-android`.  
    > `-f net10.0-android\` is invalid and causes `NETSDK1013`.
 
-3. Generate signed APK:
+4. Generate signed APK:
 
    ```bash
    dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj \
@@ -66,7 +73,7 @@ From repository root:
      -p:AndroidSigningStorePass=<store-password>
    ```
 
-4. Generate signed AAB (required for Google Play):
+5. Generate signed AAB (required for Google Play):
 
    ```bash
    dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj \
