@@ -19,7 +19,10 @@ public sealed class PngRenderer
     private const float LineHeight = 36f;
     private const float SectionGap = 24f;
     private const float HeaderHeight = 80f;
+    // At widths below this threshold the full 14-column lap table becomes cramped.
     private const int CompactLapTableWidthThresholdPx = 1100;
+    // Keeps overview tiles readable while still allowing denser sport profiles.
+    private const float MinOverviewColumnWidthPx = 170f;
 
     // Colour palette
     private static readonly SKColor ColorBackground = SKColors.White;
@@ -168,8 +171,7 @@ public sealed class PngRenderer
         if (stats.Count == 0)
             return 2;
 
-        const float minColumnWidth = 170f;
-        int maxColsByWidth = Math.Max(2, (int)Math.Floor((_layout.PageWidthPx - _layout.MarginPx * 2) / minColumnWidth));
+        int maxColsByWidth = Math.Max(2, (int)Math.Floor((_layout.PageWidthPx - _layout.MarginPx * 2) / MinOverviewColumnWidthPx));
         int startCols = Math.Min(4, maxColsByWidth);
 
         float maxOverviewHeight = _layout.PageHeightPx - _layout.MarginPx * 2 - HeaderHeight - SectionGap - LapTableHeaderHeight() - LapRowHeight();
@@ -381,7 +383,7 @@ public sealed class PngRenderer
     private static float LapTableHeaderHeight() => 28f + 28f; // section heading + column headers
     private static float LapRowHeight() => 32f;
 
-    private readonly record struct LapColumn(string Header, float Fraction, bool Right, Func<LapSummary, string> GetValue);
+    private readonly record struct LapColumn(string Header, float Fraction, bool IsRightAligned, Func<LapSummary, string> GetValue);
 
     private LapColumn[] BuildLapColumns(ActivitySummary activity)
     {
@@ -469,7 +471,7 @@ public sealed class PngRenderer
         DrawRowBackground(canvas, y, ColorRowAlt);
         for (int c = 0; c < cols.Length; c++)
         {
-            float cellX = cols[c].Right
+            float cellX = cols[c].IsRightAligned
                 ? colX[c] + cols[c].Fraction * tableWidth - MeasureText(cols[c].Header, 12f) - 4f
                 : colX[c] + 4f;
             DrawText(canvas, cols[c].Header, cellX, y + 20f, ColorMuted, 12f, bold: true);
@@ -485,7 +487,7 @@ public sealed class PngRenderer
             for (int c = 0; c < cols.Length; c++)
             {
                 var value = cols[c].GetValue(lap);
-                float cellX = cols[c].Right
+                float cellX = cols[c].IsRightAligned
                     ? colX[c] + cols[c].Fraction * tableWidth - MeasureText(value, 14f) - 4f
                     : colX[c] + 4f;
                 DrawText(canvas, value, cellX, y + 22f, ColorText, 14f);
