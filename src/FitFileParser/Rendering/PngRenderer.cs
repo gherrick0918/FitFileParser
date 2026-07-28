@@ -19,6 +19,7 @@ public sealed class PngRenderer
     private const float LineHeight = 36f;
     private const float SectionGap = 24f;
     private const float HeaderHeight = 80f;
+    private const int CompactLapTableWidthThresholdPx = 1100;
 
     // Colour palette
     private static readonly SKColor ColorBackground = SKColors.White;
@@ -36,11 +37,11 @@ public sealed class PngRenderer
     public PngRenderer(ReportLayout layout)
     {
         if (layout.PageWidthPx <= 0)
-            throw new ArgumentOutOfRangeException(nameof(layout), "Page width must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(layout.PageWidthPx), layout.PageWidthPx, "Page width must be positive.");
         if (layout.PageHeightPx <= 0)
-            throw new ArgumentOutOfRangeException(nameof(layout), "Page height must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(layout.PageHeightPx), layout.PageHeightPx, "Page height must be positive.");
         if (layout.MarginPx <= 0)
-            throw new ArgumentOutOfRangeException(nameof(layout), "Margin must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(layout.MarginPx), layout.MarginPx, "Margin must be positive.");
 
         _layout = layout;
     }
@@ -169,11 +170,11 @@ public sealed class PngRenderer
 
         const float minColumnWidth = 170f;
         int maxColsByWidth = Math.Max(2, (int)Math.Floor((_layout.PageWidthPx - _layout.MarginPx * 2) / minColumnWidth));
-        int minCols = Math.Min(4, maxColsByWidth);
+        int startCols = Math.Min(4, maxColsByWidth);
 
         float maxOverviewHeight = _layout.PageHeightPx - _layout.MarginPx * 2 - HeaderHeight - SectionGap - LapTableHeaderHeight() - LapRowHeight();
 
-        for (int cols = minCols; cols <= maxColsByWidth; cols++)
+        for (int cols = startCols; cols <= maxColsByWidth; cols++)
         {
             int rows = (int)Math.Ceiling(stats.Count / (double)cols);
             float height = rows * (LineHeight * 2 + SectionGap);
@@ -385,7 +386,7 @@ public sealed class PngRenderer
     private LapColumn[] BuildLapColumns(ActivitySummary activity)
     {
         bool usePace = activity.Laps.Any(l => l.AvgPacePerMile.HasValue);
-        bool compact = _layout.PageWidthPx <= 1100;
+        bool compact = _layout.PageWidthPx <= CompactLapTableWidthThresholdPx;
 
         if (compact)
         {
@@ -408,16 +409,34 @@ public sealed class PngRenderer
             ];
         }
 
+        if (usePace)
+        {
+            return
+            [
+                new("LAP",      0.04f, false, lap => lap.LapNumber.ToString()),
+                new("TIME",     0.10f, true, lap => FormatElapsed(lap.TotalTimerTime)),
+                new("DIST mi",  0.10f, true, lap => lap.TotalDistanceMiles.HasValue ? $"{lap.TotalDistanceMiles.Value:F2}" : "—"),
+                new("PACE",     0.11f, true, lap => lap.AvgPacePerMile.HasValue ? FormatPace(lap.AvgPacePerMile.Value) : "—"),
+                new("SPD mph",  0.08f, true, lap => lap.AvgSpeedMph.HasValue ? $"{lap.AvgSpeedMph.Value:F1}" : "—"),
+                new("AVG HR",   0.07f, true, lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
+                new("MAX HR",   0.07f, true, lap => lap.MaxHeartRate.HasValue ? lap.MaxHeartRate.ToString()! : "—"),
+                new("CAD",      0.06f, true, lap => (lap.AvgRunningCadence ?? lap.AvgCadence)?.ToString() ?? "—"),
+                new("AVG PWR",  0.08f, true, lap => lap.AvgPower.HasValue ? lap.AvgPower.ToString()! : "—"),
+                new("NP",       0.07f, true, lap => lap.NormalizedPower.HasValue ? lap.NormalizedPower.ToString()! : "—"),
+                new("↑ ft",     0.06f, true, lap => lap.TotalAscentFt.HasValue ? $"+{lap.TotalAscentFt.Value:F0}" : "—"),
+                new("↓ ft",     0.06f, true, lap => lap.TotalDescentFt.HasValue ? $"-{lap.TotalDescentFt.Value:F0}" : "—"),
+                new("CALS",     0.05f, true, lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"),
+                new("TEMP °F",  0.05f, true, lap => lap.AvgTemperatureF.HasValue ? $"{lap.AvgTemperatureF.Value:F0}°" : "—"),
+            ];
+        }
+
         return
         [
             new("LAP",      0.04f, false, lap => lap.LapNumber.ToString()),
             new("TIME",     0.10f, true, lap => FormatElapsed(lap.TotalTimerTime)),
             new("DIST mi",  0.10f, true, lap => lap.TotalDistanceMiles.HasValue ? $"{lap.TotalDistanceMiles.Value:F2}" : "—"),
-            new(usePace ? "PACE" : "SPD mph", 0.11f, true,
-                lap => usePace
-                    ? (lap.AvgPacePerMile.HasValue ? FormatPace(lap.AvgPacePerMile.Value) : "—")
-                    : (lap.AvgSpeedMph.HasValue ? $"{lap.AvgSpeedMph.Value:F1}" : "—")),
-            new("SPD mph",  0.08f, true, lap => lap.AvgSpeedMph.HasValue ? $"{lap.AvgSpeedMph.Value:F1}" : "—"),
+            new("AVG SPD",  0.11f, true, lap => lap.AvgSpeedMph.HasValue ? $"{lap.AvgSpeedMph.Value:F1}" : "—"),
+            new("MAX SPD",  0.08f, true, lap => lap.MaxSpeedMph.HasValue ? $"{lap.MaxSpeedMph.Value:F1}" : "—"),
             new("AVG HR",   0.07f, true, lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
             new("MAX HR",   0.07f, true, lap => lap.MaxHeartRate.HasValue ? lap.MaxHeartRate.ToString()! : "—"),
             new("CAD",      0.06f, true, lap => (lap.AvgRunningCadence ?? lap.AvgCadence)?.ToString() ?? "—"),
