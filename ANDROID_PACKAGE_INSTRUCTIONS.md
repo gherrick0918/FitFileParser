@@ -8,7 +8,7 @@ Use the steps below to generate installable Android packages.
 
 ## Prerequisites
 
-1. Install [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9).
+1. Install [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10) (`10.0.x`).
 2. Install Java 17 (required by Android tooling).
 3. Install Android workload:
 
@@ -47,17 +47,17 @@ From repository root:
 2. Build release app:
 
    ```bash
-   dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android
+   dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net10.0-android
    ```
 
-   > Important: do not add a trailing slash or backslash after `net9.0-android`.  
-   > `-f net9.0-android\` is invalid and causes `NETSDK1013`.
+   > Important: do not add a trailing slash or backslash after `net10.0-android`.  
+   > `-f net10.0-android\` is invalid and causes `NETSDK1013`.
 
 3. Generate signed APK:
 
    ```bash
    dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj \
-     -c Release -f net9.0-android \
+     -c Release -f net10.0-android \
      -p:AndroidPackageFormat=apk \
      -p:AndroidKeyStore=true \
      -p:AndroidSigningKeyStore="C:/path/to/release.keystore" \
@@ -70,7 +70,7 @@ From repository root:
 
    ```bash
    dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj \
-     -c Release -f net9.0-android \
+     -c Release -f net10.0-android \
      -p:AndroidPackageFormat=aab \
      -p:AndroidKeyStore=true \
      -p:AndroidSigningKeyStore="C:/path/to/release.keystore" \
@@ -87,19 +87,40 @@ Replace `C:/path/to/release.keystore`, `my-key-alias`, `<key-password>`, and `<s
 
 ## Notes about framework support warnings
 
-When using .NET 10 SDK with `net9.0-android`, you may see warning `NETSDK1202` indicating the workload is out of support.  
-This warning does not prevent restore/build/publish, but you should plan to move to a supported Android target framework.
+The project targets `net10.0-android` which is supported by the .NET 10 SDK and Android workload. No `NETSDK1202` out-of-support warnings are expected with this configuration.
 
 ## Output locations
 
 Generated package files are created under:
 
-- `src/FitFileParser.AndroidApp/bin/Release/net9.0-android/publish/`
+- `src/FitFileParser.AndroidApp/bin/Release/net10.0-android/publish/`
 
 Look for:
 
 - `*.apk`
 - `*.aab`
+
+## Troubleshooting
+
+### Missing `AutoImport.props` / missing Android workload
+
+If you see an error like:
+
+```
+The imported project "...\Microsoft.Android.Sdk.Windows\...\Sdk\AutoImport.props" was not found.
+```
+
+this means the Android workload is not installed for the current .NET SDK version. Fix it by running:
+
+```bash
+dotnet workload install android
+```
+
+Make sure you are using the **.NET 10 SDK (`10.0.x`)** — the Android workload must be installed against the same SDK version that builds the project. If multiple SDK versions are installed, verify the active version with `dotnet --version` and install the workload against it explicitly:
+
+```bash
+dotnet workload install android --sdk-version 10.0.x
+```
 
 ## Generate packages in GitHub Actions
 
