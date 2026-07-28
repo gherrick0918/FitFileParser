@@ -12,7 +12,7 @@ platforms.
 
 ## Requirements
 
-- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10) (`10.0.x`)
 - .NET Android workload (`dotnet workload install android`) for building the Android app project
 
 ## Build
@@ -79,17 +79,17 @@ storage (`/data/data/<applicationId>/files/reports/...`).
 ### Build/package Android app
 
 ```bash
-dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -f net9.0-android
+dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -f net10.0-android
 ```
 
 Create a release package:
 
 ```bash
 # APK
-dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=apk
+dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net10.0-android -p:AndroidPackageFormat=apk
 
 # AAB
-dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=aab
+dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net10.0-android -p:AndroidPackageFormat=aab
 ```
 
 Detailed packaging instructions are available in
