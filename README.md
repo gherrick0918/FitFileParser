@@ -92,6 +92,9 @@ dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c R
 dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=aab
 ```
 
+Detailed packaging instructions are available in
+`ANDROID_PACKAGE_INSTRUCTIONS.md`.
+
 ## Run tests
 
 ```bash
