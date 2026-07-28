@@ -40,11 +40,11 @@ public sealed class PngRenderer
     public PngRenderer(ReportLayout layout)
     {
         if (layout.PageWidthPx <= 0)
-            throw new ArgumentOutOfRangeException(nameof(layout.PageWidthPx), layout.PageWidthPx, "Page width must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(layout), layout.PageWidthPx, "PageWidthPx must be positive.");
         if (layout.PageHeightPx <= 0)
-            throw new ArgumentOutOfRangeException(nameof(layout.PageHeightPx), layout.PageHeightPx, "Page height must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(layout), layout.PageHeightPx, "PageHeightPx must be positive.");
         if (layout.MarginPx <= 0)
-            throw new ArgumentOutOfRangeException(nameof(layout.MarginPx), layout.MarginPx, "Margin must be positive.");
+            throw new ArgumentOutOfRangeException(nameof(layout), layout.MarginPx, "MarginPx must be positive.");
 
         _layout = layout;
     }
