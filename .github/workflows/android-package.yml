@@ -28,14 +28,33 @@ jobs:
       - name: Install Android workload
         run: dotnet workload install android
 
+      - name: Decode release keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > /tmp/release.keystore
+
       - name: Restore
         run: dotnet restore src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj
 
       - name: Publish APK
-        run: dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=apk
+        run: >
+          dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj
+          -c Release -f net9.0-android
+          -p:AndroidPackageFormat=apk
+          -p:AndroidKeyStore=true
+          -p:AndroidSigningKeyStore=/tmp/release.keystore
+          -p:AndroidSigningKeyAlias="${{ secrets.ANDROID_KEY_ALIAS }}"
+          -p:AndroidSigningKeyPass="${{ secrets.ANDROID_KEY_PASSWORD }}"
+          -p:AndroidSigningStorePass="${{ secrets.ANDROID_STORE_PASSWORD }}"
 
       - name: Publish AAB
-        run: dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=aab
+        run: >
+          dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj
+          -c Release -f net9.0-android
+          -p:AndroidPackageFormat=aab
+          -p:AndroidKeyStore=true
+          -p:AndroidSigningKeyStore=/tmp/release.keystore
+          -p:AndroidSigningKeyAlias="${{ secrets.ANDROID_KEY_ALIAS }}"
+          -p:AndroidSigningKeyPass="${{ secrets.ANDROID_KEY_PASSWORD }}"
+          -p:AndroidSigningStorePass="${{ secrets.ANDROID_STORE_PASSWORD }}"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -50,3 +69,4 @@ jobs:
           name: android-aab
           path: src/FitFileParser.AndroidApp/bin/Release/net9.0-android/publish/*.aab
           if-no-files-found: error
+

@@ -16,6 +16,24 @@ Use the steps below to generate installable Android packages.
    dotnet workload install android
    ```
 
+## Create a release keystore
+
+> **Important:** Google Play requires packages to be signed with a release keystore.  
+> Without explicit signing parameters, the .NET Android toolchain uses the debug keystore even in Release configuration, causing Google Play to reject the upload as a debug build.
+
+If you do not already have a release keystore, create one with `keytool` (bundled with Java):
+
+```bash
+keytool -genkey -v \
+  -keystore release.keystore \
+  -alias my-key-alias \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+```
+
+Store the resulting `release.keystore` file securely — **do not commit it to source control**.
+
 ## Generate packages locally
 
 From repository root:
@@ -35,17 +53,33 @@ From repository root:
    > Important: do not add a trailing slash or backslash after `net9.0-android`.  
    > `-f net9.0-android\` is invalid and causes `NETSDK1013`.
 
-3. Generate APK:
+3. Generate signed APK:
 
    ```bash
-   dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=apk
+   dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj \
+     -c Release -f net9.0-android \
+     -p:AndroidPackageFormat=apk \
+     -p:AndroidKeyStore=true \
+     -p:AndroidSigningKeyStore=/path/to/release.keystore \
+     -p:AndroidSigningKeyAlias=my-key-alias \
+     -p:AndroidSigningKeyPass=<key-password> \
+     -p:AndroidSigningStorePass=<store-password>
    ```
 
-4. Generate AAB:
+4. Generate signed AAB (required for Google Play):
 
    ```bash
-   dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=aab
+   dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj \
+     -c Release -f net9.0-android \
+     -p:AndroidPackageFormat=aab \
+     -p:AndroidKeyStore=true \
+     -p:AndroidSigningKeyStore=/path/to/release.keystore \
+     -p:AndroidSigningKeyAlias=my-key-alias \
+     -p:AndroidSigningKeyPass=<key-password> \
+     -p:AndroidSigningStorePass=<store-password>
    ```
+
+Replace `/path/to/release.keystore`, `my-key-alias`, `<key-password>`, and `<store-password>` with the values you used when creating the keystore.
 
 ## Notes about framework support warnings
 
@@ -69,5 +103,14 @@ A workflow is included at:
 
 - `.github/workflows/android-package.yml`
 
-Run it manually from the **Actions** tab (`Android Package` workflow).  
-It uploads APK and AAB files as workflow artifacts.
+Before running the workflow, add the following **repository secrets** (Settings → Secrets and variables → Actions):
+
+| Secret name | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | Base64-encoded release keystore: `base64 -w 0 release.keystore` |
+| `ANDROID_KEY_ALIAS` | Key alias used when creating the keystore |
+| `ANDROID_KEY_PASSWORD` | Password for the key entry |
+| `ANDROID_STORE_PASSWORD` | Password for the keystore file |
+
+Run the workflow manually from the **Actions** tab (`Android Package` workflow).  
+It uploads signed APK and AAB files as workflow artifacts.
