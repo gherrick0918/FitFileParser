@@ -1,6 +1,7 @@
 using Android.App;
 using Android.Content;
 using Android.OS;
+using Android.Views.Accessibility;
 using Android.Widget;
 using FitFileParser.Mobile;
 
@@ -25,33 +26,81 @@ public class MainActivity : Activity
         {
             selectFileButton.Click += (_, _) => OpenFitFilePicker();
         }
+
+        if (savedInstanceState is null)
+        {
+            if (ShouldAutoLaunchPicker())
+            {
+                OpenFitFilePicker();
+            }
+        }
     }
 
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == OpenDocumentRequestCode && resultCode == Result.Ok && data?.Data is not null)
+        if (requestCode != OpenDocumentRequestCode)
+        {
+            return;
+        }
+
+        if (resultCode == Result.Ok && data?.Data is not null)
         {
             _ = GenerateReportAsync(data.Data);
+            return;
         }
+
+        SetStatus(GetString(Resource.String.status_picker_cancelled));
     }
 
     private void OpenFitFilePicker()
     {
+        if (TryLaunchPicker(Intent.ActionOpenDocument, addOpenableCategory: true))
+        {
+            SetStatus(GetString(Resource.String.status_launching_picker));
+            return;
+        }
+
+        if (TryLaunchPicker(Intent.ActionGetContent, addOpenableCategory: false))
+        {
+            SetStatus(GetString(Resource.String.status_picker_fallback));
+            return;
+        }
+
+        SetStatus(GetString(Resource.String.status_no_file_manager));
+    }
+
+    private bool TryLaunchPicker(string action, bool addOpenableCategory)
+    {
         try
         {
-            var intent = new Intent(Intent.ActionOpenDocument);
-            intent.AddCategory(Intent.CategoryOpenable);
-            intent.SetType("*/*");
+            var intent = new Intent(action);
+            if (addOpenableCategory)
+            {
+                intent.AddCategory(Intent.CategoryOpenable);
+            }
 
+            intent.SetType("*/*");
             StartActivityForResult(intent, OpenDocumentRequestCode);
+            return true;
         }
         catch (ActivityNotFoundException ex)
         {
-            Android.Util.Log.Error(nameof(MainActivity), ex, "No file manager activity found.");
-            SetStatus(GetString(Resource.String.status_no_file_manager));
+            Android.Util.Log.Error(nameof(MainActivity), ex, "No file picker activity found.");
+            return false;
         }
+    }
+
+    private bool ShouldAutoLaunchPicker()
+    {
+        var accessibilityManager = GetSystemService(AccessibilityService) as AccessibilityManager;
+        if (accessibilityManager is null)
+        {
+            return false;
+        }
+
+        return !accessibilityManager.IsTouchExplorationEnabled;
     }
 
     private async Task GenerateReportAsync(Android.Net.Uri fitFileUri)
