@@ -25,32 +25,67 @@ public class MainActivity : Activity
         {
             selectFileButton.Click += (_, _) => OpenFitFilePicker();
         }
+
+        if (savedInstanceState is null)
+        {
+            SetStatus(GetString(Resource.String.status_launching_picker));
+            OpenFitFilePicker();
+        }
     }
 
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == OpenDocumentRequestCode && resultCode == Result.Ok && data?.Data is not null)
+        if (requestCode != OpenDocumentRequestCode)
+        {
+            return;
+        }
+
+        if (resultCode == Result.Ok && data?.Data is not null)
         {
             _ = GenerateReportAsync(data.Data);
+            return;
         }
+
+        SetStatus(GetString(Resource.String.status_picker_cancelled));
     }
 
     private void OpenFitFilePicker()
     {
+        if (TryLaunchPicker(Intent.ActionOpenDocument, addOpenableCategory: true))
+        {
+            return;
+        }
+
+        if (TryLaunchPicker(Intent.ActionGetContent, addOpenableCategory: false))
+        {
+            SetStatus(GetString(Resource.String.status_picker_fallback));
+            return;
+        }
+
+        SetStatus(GetString(Resource.String.status_no_file_manager));
+    }
+
+    private bool TryLaunchPicker(string action, bool addOpenableCategory)
+    {
         try
         {
-            var intent = new Intent(Intent.ActionOpenDocument);
-            intent.AddCategory(Intent.CategoryOpenable);
-            intent.SetType("*/*");
+            var intent = new Intent(action);
+            if (addOpenableCategory)
+            {
+                intent.AddCategory(Intent.CategoryOpenable);
+            }
 
-            StartActivityForResult(intent, OpenDocumentRequestCode);
+            intent.SetType("*/*");
+            var chooser = Intent.CreateChooser(intent, GetString(Resource.String.select_fit_file));
+            StartActivityForResult(chooser, OpenDocumentRequestCode);
+            return true;
         }
         catch (ActivityNotFoundException ex)
         {
-            Android.Util.Log.Error(nameof(MainActivity), ex, "No file manager activity found.");
-            SetStatus(GetString(Resource.String.status_no_file_manager));
+            Android.Util.Log.Error(nameof(MainActivity), ex, "No file picker activity found.");
+            return false;
         }
     }
 

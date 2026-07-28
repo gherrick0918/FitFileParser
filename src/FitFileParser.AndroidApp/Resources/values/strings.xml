@@ -3,8 +3,11 @@
     <string name="app_intro">Select a .fit file to generate Android portrait PNG report pages.</string>
     <string name="select_fit_file">Select FIT File</string>
     <string name="status_idle">Status: waiting for file selection.</string>
+    <string name="status_launching_picker">Status: opening file picker...</string>
     <string name="status_generating">Status: generating report pages...</string>
     <string name="status_success">Status: generated %1$d page(s). Output: %2$s</string>
     <string name="status_error">Status: failed - %1$s</string>
+    <string name="status_picker_cancelled">Status: file selection cancelled. Tap Select FIT File to try again.</string>
+    <string name="status_picker_fallback">Status: using alternate file picker.</string>
     <string name="status_no_file_manager">Status: no file manager found. Please install a file manager app.</string>
 </resources>
