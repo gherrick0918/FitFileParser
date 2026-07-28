@@ -26,7 +26,7 @@ If you do not already have a release keystore, create one with `keytool` (bundle
 ```bash
 keytool -genkey -v \
   -keystore release.keystore \
-  -alias my-key-alias \
+  -alias wg84fitfileparser \
   -keyalg RSA \
   -keysize 2048 \
   -validity 10000
@@ -61,7 +61,7 @@ From repository root:
      -p:AndroidPackageFormat=apk \
      -p:AndroidKeyStore=true \
      -p:AndroidSigningKeyStore=/path/to/release.keystore \
-     -p:AndroidSigningKeyAlias=my-key-alias \
+     -p:AndroidSigningKeyAlias=wg84fitfileparser \
      -p:AndroidSigningKeyPass=<key-password> \
      -p:AndroidSigningStorePass=<store-password>
    ```
