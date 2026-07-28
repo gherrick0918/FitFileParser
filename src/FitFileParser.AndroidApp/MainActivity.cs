@@ -161,7 +161,7 @@ public class MainActivity : Activity
         }
         catch (Exception ex)
         {
-            Android.Util.Log.Error(nameof(MainActivity), ex, "Failed to open generated image.");
+            Android.Util.Log.Error(nameof(MainActivity), $"Failed to open generated image. {ex}");
             SetStatus(string.Format(GetString(Resource.String.status_error), ex.Message));
         }
     }
