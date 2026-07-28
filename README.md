@@ -49,16 +49,26 @@ Each report includes:
 ```
 FitFileParser/
 ├── src/
-│   └── FitFileParser/
-│       ├── Program.cs          # CLI entry point
-│       ├── Models/             # Normalized activity and lap models
-│       ├── Parsing/            # FIT file decoding via Garmin FIT SDK
-│       └── Rendering/          # PNG generation via SkiaSharp
+│   ├── FitFileParser/
+│   │   ├── Program.cs          # CLI entry point
+│   │   ├── Models/             # Normalized activity and lap models
+│   │   ├── Parsing/            # FIT file decoding via Garmin FIT SDK
+│   │   └── Rendering/          # PNG generation via SkiaSharp
+│   └── FitFileParser.Mobile/   # Android portrait-oriented report generation API
 ├── tests/
 │   └── FitFileParser.Tests/    # xUnit tests for parsing and rendering
 ├── samples/                    # Sanitized sample .fit files
 └── FitFileParser.slnx
 ```
+
+## Mobile/Android portrait support
+
+The shared `PngRenderer` now supports configurable page layouts.  
+Use `PngRenderer.ReportLayout.AndroidPortrait` for 1080x1920 portrait output.
+
+`src/FitFileParser.Mobile` provides `AndroidPortraitReportGenerator`, which reuses
+the existing parser and renderer pipeline to avoid duplication between desktop/CLI
+and mobile scenarios.
 
 ## Run tests
 

@@ -4,16 +4,18 @@ using SkiaSharp;
 namespace FitFileParser.Rendering;
 
 /// <summary>
-/// Renders an <see cref="ActivitySummary"/> as one or more letter-size PNG pages
-/// suitable for uploading to coaching platforms.
+/// Renders an <see cref="ActivitySummary"/> as one or more PNG pages.
 /// </summary>
 public sealed class PngRenderer
 {
-    // Letter paper at 150 DPI: 8.5" × 11"
-    internal const int PageWidthPx = 1275;
-    internal const int PageHeightPx = 1650;
+    public readonly record struct ReportLayout(int PageWidthPx, int PageHeightPx, float MarginPx)
+    {
+        public static ReportLayout Letter => new(1275, 1650, 60f);
+        public static ReportLayout AndroidPortrait => new(1080, 1920, 48f);
+    }
 
-    private const float Margin = 60f;
+    private readonly ReportLayout _layout;
+
     private const float LineHeight = 36f;
     private const float SectionGap = 24f;
     private const float HeaderHeight = 80f;
@@ -25,6 +27,23 @@ public sealed class PngRenderer
     private static readonly SKColor ColorMuted = new(0x75, 0x75, 0x75);
     private static readonly SKColor ColorDivider = new(0xE0, 0xE0, 0xE0);
     private static readonly SKColor ColorRowAlt = new(0xF5, 0xF7, 0xFF);
+
+    public PngRenderer()
+        : this(ReportLayout.Letter)
+    {
+    }
+
+    public PngRenderer(ReportLayout layout)
+    {
+        if (layout.PageWidthPx <= 0)
+            throw new ArgumentOutOfRangeException(nameof(layout), "Page width must be positive.");
+        if (layout.PageHeightPx <= 0)
+            throw new ArgumentOutOfRangeException(nameof(layout), "Page height must be positive.");
+        if (layout.MarginPx <= 0)
+            throw new ArgumentOutOfRangeException(nameof(layout), "Margin must be positive.");
+
+        _layout = layout;
+    }
 
     /// <summary>
     /// Renders the activity into PNG files written to <paramref name="outputDirectory"/>.
@@ -54,12 +73,13 @@ public sealed class PngRenderer
     // Pagination
     // -----------------------------------------------------------------
 
-    private static List<IReadOnlyList<int>> Paginate(ActivitySummary activity)
+    private List<IReadOnlyList<int>> Paginate(ActivitySummary activity)
     {
-        float overview = OverviewBlockHeight(activity) + SectionGap;
+        int overviewColumns = ResolveOverviewColumnCount(activity);
+        float overview = OverviewBlockHeight(activity, overviewColumns) + SectionGap;
         float lapHead = LapTableHeaderHeight();
         float rowH = LapRowHeight();
-        float usable = PageHeightPx - Margin * 2 - HeaderHeight - SectionGap;
+        float usable = _layout.PageHeightPx - _layout.MarginPx * 2 - HeaderHeight - SectionGap;
 
         int lapsPerPage1 = Math.Max(1, (int)((usable - overview - lapHead) / rowH));
         int lapsPerPageN = Math.Max(1, (int)((usable - lapHead) / rowH));
@@ -86,17 +106,18 @@ public sealed class PngRenderer
     private void RenderPage(ActivitySummary activity, IReadOnlyList<int> lapIndices,
                             int pageNum, int totalPages, string outputPath)
     {
-        using var bitmap = new SKBitmap(PageWidthPx, PageHeightPx);
+        using var bitmap = new SKBitmap(_layout.PageWidthPx, _layout.PageHeightPx);
         using var canvas = new SKCanvas(bitmap);
         canvas.Clear(ColorBackground);
 
-        float y = Margin;
+        float y = _layout.MarginPx;
         y = DrawHeader(canvas, activity, pageNum, totalPages, y);
         y += SectionGap;
 
         if (pageNum == 1)
         {
-            y = DrawOverviewBlock(canvas, activity, y);
+            int overviewColumns = ResolveOverviewColumnCount(activity);
+            y = DrawOverviewBlock(canvas, activity, y, overviewColumns);
             y += SectionGap;
         }
 
@@ -115,24 +136,24 @@ public sealed class PngRenderer
     // Header
     // -----------------------------------------------------------------
 
-    private static float DrawHeader(SKCanvas canvas, ActivitySummary activity,
-                                    int pageNum, int totalPages, float y)
+    private float DrawHeader(SKCanvas canvas, ActivitySummary activity,
+                             int pageNum, int totalPages, float y)
     {
-        DrawText(canvas, FormatTitle(activity), Margin, y + 28f,
+        DrawText(canvas, FormatTitle(activity), _layout.MarginPx, y + 28f,
                  ColorAccent, 28f, bold: true);
         DrawText(canvas,
                  $"{activity.StartTime:dddd, MMMM d, yyyy}  ·  {FormatSport(activity)}",
-                 Margin, y + 54f, ColorMuted, 16f);
+                 _layout.MarginPx, y + 54f, ColorMuted, 16f);
 
         if (totalPages > 1)
         {
             string pageLabel = $"Page {pageNum} of {totalPages}";
             float tw = MeasureText(pageLabel, 14f);
-            DrawText(canvas, pageLabel, PageWidthPx - Margin - tw, y + 28f, ColorMuted, 14f);
+            DrawText(canvas, pageLabel, _layout.PageWidthPx - _layout.MarginPx - tw, y + 28f, ColorMuted, 14f);
         }
 
         float divY = y + HeaderHeight - 8f;
-        DrawLine(canvas, Margin, divY, PageWidthPx - Margin, divY, ColorDivider);
+        DrawLine(canvas, _layout.MarginPx, divY, _layout.PageWidthPx - _layout.MarginPx, divY, ColorDivider);
         return divY + 8f;
     }
 
@@ -140,26 +161,47 @@ public sealed class PngRenderer
     // Overview stats block
     // -----------------------------------------------------------------
 
-    private static float OverviewBlockHeight(ActivitySummary activity)
+    private int ResolveOverviewColumnCount(ActivitySummary activity)
     {
-        const int cols = 4;
+        var stats = BuildOverviewStats(activity);
+        if (stats.Count == 0)
+            return 2;
+
+        const float minColumnWidth = 170f;
+        int maxColsByWidth = Math.Max(2, (int)Math.Floor((_layout.PageWidthPx - _layout.MarginPx * 2) / minColumnWidth));
+        int minCols = Math.Min(4, maxColsByWidth);
+
+        float maxOverviewHeight = _layout.PageHeightPx - _layout.MarginPx * 2 - HeaderHeight - SectionGap - LapTableHeaderHeight() - LapRowHeight();
+
+        for (int cols = minCols; cols <= maxColsByWidth; cols++)
+        {
+            int rows = (int)Math.Ceiling(stats.Count / (double)cols);
+            float height = rows * (LineHeight * 2 + SectionGap);
+            if (height <= maxOverviewHeight)
+                return cols;
+        }
+
+        return maxColsByWidth;
+    }
+
+    private static float OverviewBlockHeight(ActivitySummary activity, int cols)
+    {
         int rows = (int)Math.Ceiling(BuildOverviewStats(activity).Count / (double)cols);
         return rows * (LineHeight * 2 + SectionGap);
     }
 
-    private static float DrawOverviewBlock(SKCanvas canvas, ActivitySummary activity, float y)
+    private float DrawOverviewBlock(SKCanvas canvas, ActivitySummary activity, float y, int cols)
     {
         var stats = BuildOverviewStats(activity);
 
-        const int cols = 4;
-        float colWidth = (PageWidthPx - Margin * 2) / cols;
+        float colWidth = (_layout.PageWidthPx - _layout.MarginPx * 2) / cols;
         int rows = (int)Math.Ceiling(stats.Count / (double)cols);
 
         for (int i = 0; i < stats.Count; i++)
         {
             int col = i % cols;
             int row = i / cols;
-            float x = Margin + col * colWidth;
+            float x = _layout.MarginPx + col * colWidth;
             float baseY = y + row * (LineHeight * 2 + SectionGap);
 
             DrawText(canvas, stats[i].Label, x, baseY + 16f, ColorMuted, 13f);
@@ -328,7 +370,8 @@ public sealed class PngRenderer
         return allPossibleStats
             .Where(stat => stat.Value is not null)
             .Select(stat => (stat.Label, Value: stat.Value!))
-            .ToList();    }
+            .ToList();
+    }
 
     // -----------------------------------------------------------------
     // Lap table
@@ -337,34 +380,67 @@ public sealed class PngRenderer
     private static float LapTableHeaderHeight() => 28f + 28f; // section heading + column headers
     private static float LapRowHeight() => 32f;
 
-    private static float DrawLapTable(SKCanvas canvas, ActivitySummary activity,
-                                      IReadOnlyList<int> lapIndices, float y)
+    private readonly record struct LapColumn(string Header, float Fraction, bool Right, Func<LapSummary, string> GetValue);
+
+    private LapColumn[] BuildLapColumns(ActivitySummary activity)
     {
-        DrawText(canvas, "LAP DETAILS", Margin, y + 18f, ColorAccent, 14f, bold: true);
+        bool usePace = activity.Laps.Any(l => l.AvgPacePerMile.HasValue);
+        bool compact = _layout.PageWidthPx <= 1100;
+
+        if (compact)
+        {
+            return
+            [
+                new("LAP",      0.08f, false, lap => lap.LapNumber.ToString()),
+                new("TIME",     0.16f, true, lap => FormatElapsed(lap.TotalTimerTime)),
+                new("DIST mi",  0.13f, true, lap => lap.TotalDistanceMiles.HasValue ? $"{lap.TotalDistanceMiles.Value:F2}" : "—"),
+                new(usePace ? "PACE" : "SPD", 0.15f, true,
+                    lap => usePace
+                        ? (lap.AvgPacePerMile.HasValue ? FormatPace(lap.AvgPacePerMile.Value) : "—")
+                        : (lap.AvgSpeedMph.HasValue ? $"{lap.AvgSpeedMph.Value:F1}" : "—")),
+                new("HR",       0.10f, true, lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
+                new("CAD",      0.10f, true, lap => (lap.AvgRunningCadence ?? lap.AvgCadence)?.ToString() ?? "—"),
+                new("PWR",      0.12f, true, lap => lap.AvgPower.HasValue ? lap.AvgPower.ToString()! : "—"),
+                new("ELEV ft",  0.16f, true, lap =>
+                    lap.TotalAscentFt.HasValue || lap.TotalDescentFt.HasValue
+                        ? $"+{lap.TotalAscentFt?.ToString("F0") ?? "0"}/-{lap.TotalDescentFt?.ToString("F0") ?? "0"}"
+                        : "—"),
+            ];
+        }
+
+        return
+        [
+            new("LAP",      0.04f, false, lap => lap.LapNumber.ToString()),
+            new("TIME",     0.10f, true, lap => FormatElapsed(lap.TotalTimerTime)),
+            new("DIST mi",  0.10f, true, lap => lap.TotalDistanceMiles.HasValue ? $"{lap.TotalDistanceMiles.Value:F2}" : "—"),
+            new(usePace ? "PACE" : "SPD mph", 0.11f, true,
+                lap => usePace
+                    ? (lap.AvgPacePerMile.HasValue ? FormatPace(lap.AvgPacePerMile.Value) : "—")
+                    : (lap.AvgSpeedMph.HasValue ? $"{lap.AvgSpeedMph.Value:F1}" : "—")),
+            new("SPD mph",  0.08f, true, lap => lap.AvgSpeedMph.HasValue ? $"{lap.AvgSpeedMph.Value:F1}" : "—"),
+            new("AVG HR",   0.07f, true, lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
+            new("MAX HR",   0.07f, true, lap => lap.MaxHeartRate.HasValue ? lap.MaxHeartRate.ToString()! : "—"),
+            new("CAD",      0.06f, true, lap => (lap.AvgRunningCadence ?? lap.AvgCadence)?.ToString() ?? "—"),
+            new("AVG PWR",  0.08f, true, lap => lap.AvgPower.HasValue ? lap.AvgPower.ToString()! : "—"),
+            new("NP",       0.07f, true, lap => lap.NormalizedPower.HasValue ? lap.NormalizedPower.ToString()! : "—"),
+            new("↑ ft",     0.06f, true, lap => lap.TotalAscentFt.HasValue ? $"+{lap.TotalAscentFt.Value:F0}" : "—"),
+            new("↓ ft",     0.06f, true, lap => lap.TotalDescentFt.HasValue ? $"-{lap.TotalDescentFt.Value:F0}" : "—"),
+            new("CALS",     0.05f, true, lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"),
+            new("TEMP °F",  0.05f, true, lap => lap.AvgTemperatureF.HasValue ? $"{lap.AvgTemperatureF.Value:F0}°" : "—"),
+        ];
+    }
+
+    private float DrawLapTable(SKCanvas canvas, ActivitySummary activity,
+                               IReadOnlyList<int> lapIndices, float y)
+    {
+        DrawText(canvas, "LAP DETAILS", _layout.MarginPx, y + 18f, ColorAccent, 14f, bold: true);
         y += 28f;
 
-        // 14 columns – fractions must sum to 1.0
-        var cols = new (string Header, float Fraction, bool Right)[]
-        {
-            ("LAP",      0.04f, false),
-            ("TIME",     0.10f, true),
-            ("DIST mi",  0.10f, true),
-            ("PACE",     0.11f, true),
-            ("SPD mph",  0.08f, true),
-            ("AVG HR",   0.07f, true),
-            ("MAX HR",   0.07f, true),
-            ("CAD",      0.06f, true),
-            ("AVG PWR",  0.08f, true),
-            ("NP",       0.07f, true),
-            ("↑ ft",     0.06f, true),
-            ("↓ ft",     0.06f, true),
-            ("CALS",     0.05f, true),
-            ("TEMP °F",  0.05f, true),
-        };
+        var cols = BuildLapColumns(activity);
 
-        float tableWidth = PageWidthPx - Margin * 2;
+        float tableWidth = _layout.PageWidthPx - _layout.MarginPx * 2;
         var colX = new float[cols.Length];
-        colX[0] = Margin;
+        colX[0] = _layout.MarginPx;
         for (int i = 1; i < cols.Length; i++)
             colX[i] = colX[i - 1] + cols[i - 1].Fraction * tableWidth;
 
@@ -387,35 +463,16 @@ public sealed class PngRenderer
             var lap = activity.Laps[lapIndices[li]];
             if (li % 2 == 1) DrawRowBackground(canvas, y, ColorRowAlt);
 
-            var cadence = lap.AvgRunningCadence ?? lap.AvgCadence;
-
-            var values = new[]
-            {
-                lap.LapNumber.ToString(),
-                FormatElapsed(lap.TotalTimerTime),
-                lap.TotalDistanceMiles.HasValue  ? $"{lap.TotalDistanceMiles.Value:F2}" : "—",
-                lap.AvgPacePerMile.HasValue      ? FormatPace(lap.AvgPacePerMile.Value) : "—",
-                lap.AvgSpeedMph.HasValue         ? $"{lap.AvgSpeedMph.Value:F1}" : "—",
-                lap.AvgHeartRate.HasValue        ? lap.AvgHeartRate.ToString()! : "—",
-                lap.MaxHeartRate.HasValue        ? lap.MaxHeartRate.ToString()! : "—",
-                cadence.HasValue                 ? cadence.ToString()! : "—",
-                lap.AvgPower.HasValue            ? lap.AvgPower.ToString()! : "—",
-                lap.NormalizedPower.HasValue     ? lap.NormalizedPower.ToString()! : "—",
-                lap.TotalAscentFt.HasValue       ? $"+{lap.TotalAscentFt.Value:F0}" : "—",
-                lap.TotalDescentFt.HasValue      ? $"-{lap.TotalDescentFt.Value:F0}" : "—",
-                lap.TotalCalories.HasValue       ? lap.TotalCalories.ToString()! : "—",
-                lap.AvgTemperatureF.HasValue     ? $"{lap.AvgTemperatureF.Value:F0}°" : "—",
-            };
-
             for (int c = 0; c < cols.Length; c++)
             {
+                var value = cols[c].GetValue(lap);
                 float cellX = cols[c].Right
-                    ? colX[c] + cols[c].Fraction * tableWidth - MeasureText(values[c], 14f) - 4f
+                    ? colX[c] + cols[c].Fraction * tableWidth - MeasureText(value, 14f) - 4f
                     : colX[c] + 4f;
-                DrawText(canvas, values[c], cellX, y + 22f, ColorText, 14f);
+                DrawText(canvas, value, cellX, y + 22f, ColorText, 14f);
             }
 
-            DrawLine(canvas, Margin, y + rowH, PageWidthPx - Margin, y + rowH, ColorDivider);
+            DrawLine(canvas, _layout.MarginPx, y + rowH, _layout.PageWidthPx - _layout.MarginPx, y + rowH, ColorDivider);
             y += rowH;
         }
 
@@ -426,10 +483,10 @@ public sealed class PngRenderer
     // Footer
     // -----------------------------------------------------------------
 
-    private static void DrawFooter(SKCanvas canvas)
+    private void DrawFooter(SKCanvas canvas)
     {
         const string note = "FIT files may contain location data, timestamps, and health-related metrics.";
-        DrawText(canvas, note, Margin, PageHeightPx - Margin / 2f, ColorMuted, 11f);
+        DrawText(canvas, note, _layout.MarginPx, _layout.PageHeightPx - _layout.MarginPx / 2f, ColorMuted, 11f);
     }
 
     // -----------------------------------------------------------------
@@ -453,10 +510,10 @@ public sealed class PngRenderer
         canvas.DrawLine(x1, y1, x2, y2, paint);
     }
 
-    private static void DrawRowBackground(SKCanvas canvas, float y, SKColor color)
+    private void DrawRowBackground(SKCanvas canvas, float y, SKColor color)
     {
         using var paint = new SKPaint { Color = color };
-        canvas.DrawRect(Margin, y, PageWidthPx - Margin * 2, LapRowHeight(), paint);
+        canvas.DrawRect(_layout.MarginPx, y, _layout.PageWidthPx - _layout.MarginPx * 2, LapRowHeight(), paint);
     }
 
     private static float MeasureText(string text, float size)
