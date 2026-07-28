@@ -491,7 +491,7 @@ public sealed class PngRenderer
                 new("TIME",     0.14f, true,  lap => FormatElapsed(lap.TotalTimerTime)),
                 new("EXERCISE", 0.30f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, CompactExerciseNameMaxLength)),
                 new("REPS",     0.10f, true,  lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"),
-                new("WT lbs",   0.14f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F1}" : "—"),
+                new("WT lbs",   0.14f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F0}" : "—"),
                 new("HR",       0.08f, true,  lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
                 new("CALS",     0.08f, true,  lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"),
             ];
@@ -504,7 +504,7 @@ public sealed class PngRenderer
             new("TIME",     0.09f, true,  lap => FormatElapsed(lap.TotalTimerTime)),
             new("EXERCISE", 0.31f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, FullWidthExerciseNameMaxLength)),
             new("REPS",     0.07f, true,  lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"),
-            new("WT lbs",   0.10f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F1} lb" : "—"),
+            new("WT lbs",   0.10f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F0} lb" : "—"),
             new("AVG HR",   0.07f, true,  lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
             new("MAX HR",   0.07f, true,  lap => lap.MaxHeartRate.HasValue ? lap.MaxHeartRate.ToString()! : "—"),
             new("CALS",     0.07f, true,  lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"),
