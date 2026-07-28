@@ -23,6 +23,9 @@ public sealed class PngRenderer
     private const int CompactLapTableWidthThresholdPx = 1100;
     // Keeps overview tiles readable while still allowing denser sport profiles.
     private const float MinOverviewColumnWidthPx = 170f;
+    // Maximum exercise name characters before truncation in strength training lap table.
+    private const int CompactExerciseNameMaxLength = 20;
+    private const int FullWidthExerciseNameMaxLength = 28;
 
     // Colour palette
     private static readonly SKColor ColorBackground = SKColors.White;
@@ -486,7 +489,7 @@ public sealed class PngRenderer
                 new("SET",      0.06f, false, lap => lap.LapNumber.ToString()),
                 new("TYPE",     0.10f, false, lap => lap.IsActiveSet.HasValue ? (lap.IsActiveSet.Value ? "Active" : "Rest") : "—"),
                 new("TIME",     0.14f, true,  lap => FormatElapsed(lap.TotalTimerTime)),
-                new("EXERCISE", 0.30f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, 20)),
+                new("EXERCISE", 0.30f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, CompactExerciseNameMaxLength)),
                 new("REPS",     0.10f, true,  lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"),
                 new("WT lbs",   0.14f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F1}" : "—"),
                 new("HR",       0.08f, true,  lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
@@ -499,7 +502,7 @@ public sealed class PngRenderer
             new("SET",      0.04f, false, lap => lap.LapNumber.ToString()),
             new("TYPE",     0.08f, false, lap => lap.IsActiveSet.HasValue ? (lap.IsActiveSet.Value ? "Active" : "Rest") : "—"),
             new("TIME",     0.09f, true,  lap => FormatElapsed(lap.TotalTimerTime)),
-            new("EXERCISE", 0.31f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, 28)),
+            new("EXERCISE", 0.31f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, FullWidthExerciseNameMaxLength)),
             new("REPS",     0.07f, true,  lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"),
             new("WT lbs",   0.10f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F1} lb" : "—"),
             new("AVG HR",   0.07f, true,  lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),

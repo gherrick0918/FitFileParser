@@ -16,7 +16,10 @@ public sealed class FitParser
     private const float MetersPerFoot = 0.3048f;
     private const float MmPerInch = 25.4f;
     private const float MetersPerYard = 0.9144f;
-    private const float KgPerLb = 0.45359237f;
+    private const float LbsPerKg = 2.20462f;
+
+    /// <summary>Maximum seconds difference when correlating a <see cref="SetMesg"/> to a <see cref="LapMesg"/>.</summary>
+    private const int SetLapCorrelationToleranceSec = 10;
 
     // ── Exercise name lookup: (ExerciseCategory, CategorySubtype) → readable name ──────
     // Built once via reflection from the Garmin FIT SDK exercise-name constant types.
@@ -265,7 +268,7 @@ public sealed class FitParser
             isActiveSet = matchedSet.GetSetType() == SetType.Active;
             numReps = matchedSet.GetRepetitions();
             weightKg = matchedSet.GetWeight();
-            weightLbs = weightKg.HasValue ? weightKg.Value / KgPerLb : null;
+            weightLbs = weightKg.HasValue ? weightKg.Value * LbsPerKg : null;
 
             ushort? category = matchedSet.GetNumCategory() > 0 ? matchedSet.GetCategory(0) : null;
             ushort? subtype  = matchedSet.GetNumCategorySubtype() > 0 ? matchedSet.GetCategorySubtype(0) : null;
@@ -408,15 +411,14 @@ public sealed class FitParser
         // Exact match first.
         if (setByTime.TryGetValue(lapRounded, out var exact)) return exact;
 
-        // Nearest within ±10 seconds.
-        const int toleranceSec = 10;
+        // Nearest within ±SetLapCorrelationToleranceSec seconds.
         SetMesg? best = null;
         double bestDiff = double.MaxValue;
 
         foreach (var kvp in setByTime)
         {
             double diff = Math.Abs((kvp.Key - lapRounded).TotalSeconds);
-            if (diff < bestDiff && diff <= toleranceSec)
+            if (diff < bestDiff && diff <= SetLapCorrelationToleranceSec)
             {
                 bestDiff = diff;
                 best = kvp.Value;
