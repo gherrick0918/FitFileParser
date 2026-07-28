@@ -134,12 +134,42 @@ public sealed class FitParser
 
     private static ActivitySummary BuildActivitySummary(SessionMesg session, List<LapMesg> lapMesgs, List<SetMesg> setMesgs)
     {
-        // Build a set-data lookup keyed by end-timestamp for quick correlation with laps.
-        var setByTime = BuildSetByTimeLookup(setMesgs);
+        List<LapSummary> laps;
 
-        var laps = lapMesgs
-            .Select((lap, index) => BuildLapSummary(lap, index + 1, setByTime))
-            .ToList();
+        if (lapMesgs.Count == 0 && setMesgs.Count > 0)
+        {
+            // Some Garmin firmware emits only SetMesg records for strength training,
+            // with no corresponding LapMesg. Build lap summaries directly from sets.
+            var sortedSets = setMesgs
+                .OrderBy(s => s.GetTimestamp()?.GetDateTime() ?? SysDateTime.MinValue)
+                .ToList();
+            laps = sortedSets
+                .Select((set, index) => BuildLapSummaryFromSet(set, index + 1))
+                .ToList();
+        }
+        else if (setMesgs.Count > 0 && lapMesgs.Count == setMesgs.Count)
+        {
+            // Counts match — use positional (time-sorted) 1:1 correlation.
+            // This is more reliable than the fuzzy ±10 s timestamp lookup, which can
+            // map multiple laps to the same set when sets are close together.
+            var sortedLaps = lapMesgs
+                .OrderBy(l => l.GetTimestamp()?.GetDateTime() ?? SysDateTime.MinValue)
+                .ToList();
+            var sortedSets = setMesgs
+                .OrderBy(s => s.GetTimestamp()?.GetDateTime() ?? SysDateTime.MinValue)
+                .ToList();
+            laps = sortedLaps
+                .Select((lap, index) => BuildLapSummary(lap, index + 1, sortedSets[index]))
+                .ToList();
+        }
+        else
+        {
+            // Counts differ — fall back to timestamp-based correlation.
+            var setByTime = BuildSetByTimeLookup(setMesgs);
+            laps = lapMesgs
+                .Select((lap, index) => BuildLapSummary(lap, index + 1, FindMatchingSet(lap, setByTime)))
+                .ToList();
+        }
 
         return new ActivitySummary
         {
@@ -251,35 +281,12 @@ public sealed class FitParser
         };
     }
 
-    private static LapSummary BuildLapSummary(LapMesg lap, int lapNumber, Dictionary<SysDateTime, SetMesg> setByTime)
+    private static LapSummary BuildLapSummary(LapMesg lap, int lapNumber, SetMesg? matchedSet)
     {
-        // Correlate this lap with the closest matching SetMesg (within 10 s).
-        SetMesg? matchedSet = FindMatchingSet(lap, setByTime);
-
-        string? exerciseCategoryName = null;
-        string? exerciseName = null;
-        bool? isActiveSet = null;
-        ushort? numReps = null;
-        float? weightKg = null;
-        float? weightLbs = null;
-
-        if (matchedSet is not null)
-        {
-            isActiveSet = matchedSet.GetSetType() == SetType.Active;
-            numReps = matchedSet.GetRepetitions();
-            weightKg = matchedSet.GetWeight();
-            weightLbs = weightKg.HasValue ? weightKg.Value * LbsPerKg : null;
-
-            ushort? category = matchedSet.GetNumCategory() > 0 ? matchedSet.GetCategory(0) : null;
-            ushort? subtype  = matchedSet.GetNumCategorySubtype() > 0 ? matchedSet.GetCategorySubtype(0) : null;
-
-            if (category.HasValue)
-            {
-                exerciseCategoryName = ResolveCategoryName(category.Value);
-                if (subtype.HasValue && ExerciseNameMap.TryGetValue((category.Value, subtype.Value), out string? resolvedName))
-                    exerciseName = resolvedName;
-            }
-        }
+        ExtractSetFields(matchedSet,
+            out bool? isActiveSet, out ushort? numReps,
+            out float? weightKg, out float? weightLbs,
+            out string? exerciseCategoryName, out string? exerciseName);
 
         return new LapSummary
         {
@@ -374,6 +381,78 @@ public sealed class FitParser
             ExerciseCategoryName = exerciseCategoryName,
             ExerciseName = exerciseName,
         };
+    }
+
+    /// <summary>
+    /// Builds a <see cref="LapSummary"/> purely from a <see cref="SetMesg"/> when no
+    /// corresponding <see cref="LapMesg"/> is present in the file (some Garmin firmware
+    /// omits <see cref="LapMesg"/> records for strength training activities).
+    /// </summary>
+    private static LapSummary BuildLapSummaryFromSet(SetMesg set, int lapNumber)
+    {
+        ExtractSetFields(set,
+            out bool? isActiveSet, out ushort? numReps,
+            out float? weightKg, out float? weightLbs,
+            out string? exerciseCategoryName, out string? exerciseName);
+
+        float duration = set.GetDuration() ?? 0f;
+
+        return new LapSummary
+        {
+            LapNumber = lapNumber,
+            StartTime = set.GetStartTime()?.GetDateTime() ?? SysDateTime.MinValue,
+            TotalElapsedTime = TimeSpan.FromSeconds(duration),
+            TotalTimerTime = TimeSpan.FromSeconds(duration),
+            IsActiveSet = isActiveSet,
+            NumReps = numReps,
+            WeightKg = weightKg,
+            WeightLbs = weightLbs,
+            ExerciseCategoryName = exerciseCategoryName,
+            ExerciseName = exerciseName,
+        };
+    }
+
+    /// <summary>
+    /// Extracts strength-training fields from a <see cref="SetMesg"/> into out parameters.
+    /// All out parameters are set to null when <paramref name="set"/> is null.
+    /// </summary>
+    private static void ExtractSetFields(
+        SetMesg? set,
+        out bool? isActiveSet,
+        out ushort? numReps,
+        out float? weightKg,
+        out float? weightLbs,
+        out string? exerciseCategoryName,
+        out string? exerciseName)
+    {
+        if (set is null)
+        {
+            isActiveSet = null; numReps = null;
+            weightKg = null; weightLbs = null;
+            exerciseCategoryName = null; exerciseName = null;
+            return;
+        }
+
+        isActiveSet = set.GetSetType() == SetType.Active;
+        numReps = set.GetRepetitions();
+        weightKg = set.GetWeight();
+        weightLbs = weightKg.HasValue ? weightKg.Value * LbsPerKg : null;
+
+        ushort? category = set.GetNumCategory() > 0 ? set.GetCategory(0) : null;
+        ushort? subtype  = set.GetNumCategorySubtype() > 0 ? set.GetCategorySubtype(0) : null;
+
+        if (category.HasValue)
+        {
+            exerciseCategoryName = ResolveCategoryName(category.Value);
+            exerciseName = subtype.HasValue &&
+                           ExerciseNameMap.TryGetValue((category.Value, subtype.Value), out string? resolved)
+                ? resolved : null;
+        }
+        else
+        {
+            exerciseCategoryName = null;
+            exerciseName = null;
+        }
     }
 
     // ── Set ↔ Lap correlation helpers ────────────────────────────────────

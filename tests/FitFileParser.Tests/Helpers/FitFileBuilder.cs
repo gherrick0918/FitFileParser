@@ -57,6 +57,15 @@ internal sealed class FitFileBuilder
     /// <param name="reps">Number of repetitions.</param>
     /// <param name="weightKg">Load in kilograms (pass 0 for bodyweight).</param>
     /// <param name="category">FIT ExerciseCategory constant (e.g. <see cref="ExerciseCategory.Squat"/>).</param>
+    private bool _setsOnly = false;
+
+    /// <summary>
+    /// When set, strength sets are written as <see cref="SetMesg"/> only — no paired
+    /// <see cref="LapMesg"/> is emitted. This mirrors the behaviour of some Garmin
+    /// firmware versions that omit lap records for strength training activities.
+    /// </summary>
+    public FitFileBuilder WithSetsOnly() { _setsOnly = true; return this; }
+
     /// <param name="categorySubtype">Exercise-specific sub-type constant (e.g. <c>SquatExerciseName.BarbellBackSquat</c>).</param>
     /// <param name="isRest">True to mark this entry as a rest period instead of an active set.</param>
     public FitFileBuilder AddStrengthSet(float durationSec, ushort reps = 10, float weightKg = 0f,
@@ -173,13 +182,16 @@ internal sealed class FitFileBuilder
             var setStartTime = _startTime.AddSeconds(elapsed);
             var setEndTime   = setStartTime.AddSeconds(spec.DurationSec);
 
-            // LapMesg – one per set (mirrors how Garmin devices behave)
-            var lap = new LapMesg();
-            lap.SetTimestamp(new FitDateTime(setEndTime));
-            lap.SetStartTime(new FitDateTime(setStartTime));
-            lap.SetTotalElapsedTime(spec.DurationSec);
-            lap.SetTotalTimerTime(spec.DurationSec);
-            enc.Write(lap);
+            if (!_setsOnly)
+            {
+                // LapMesg – one per set (mirrors how most Garmin devices behave)
+                var lap = new LapMesg();
+                lap.SetTimestamp(new FitDateTime(setEndTime));
+                lap.SetStartTime(new FitDateTime(setStartTime));
+                lap.SetTotalElapsedTime(spec.DurationSec);
+                lap.SetTotalTimerTime(spec.DurationSec);
+                enc.Write(lap);
+            }
 
             // SetMesg – contains exercise details for this set
             var set = new SetMesg();

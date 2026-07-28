@@ -336,6 +336,104 @@ public sealed class FitParserTests
     }
 
     // ------------------------------------------------------------------
+    // Strength training — SetMesg-only (no LapMesg) — some Garmin firmware
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Parse_StrengthTrainingSetsOnly_ReturnsCorrectSetCount()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .WithSetsOnly()
+            .AddStrengthSet(60f, reps: 10, weightKg: 60f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.BarbellBackSquat)
+            .AddStrengthSet(60f, reps: 8, weightKg: 80f,
+                            category: Dynastream.Fit.ExerciseCategory.BenchPress,
+                            categorySubtype: Dynastream.Fit.BenchPressExerciseName.BarbellBenchPress)
+            .AddStrengthSet(30f, reps: 0, weightKg: 0f, isRest: true)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+
+        Assert.Equal(3, summary.Laps.Count);
+    }
+
+    [Fact]
+    public void Parse_StrengthTrainingSetsOnly_ReturnsRepsAndWeight()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .WithSetsOnly()
+            .AddStrengthSet(60f, reps: 12, weightKg: 50f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.BarbellBackSquat)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+        var lap = summary.Laps[0];
+
+        Assert.Equal((ushort)12, lap.NumReps);
+        Assert.NotNull(lap.WeightKg);
+        Assert.Equal(50f, lap.WeightKg!.Value, precision: 1);
+        Assert.NotNull(lap.WeightLbs);
+        Assert.InRange(lap.WeightLbs!.Value, 110f, 112f);
+    }
+
+    [Fact]
+    public void Parse_StrengthTrainingSetsOnly_ResolvesExerciseName()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .WithSetsOnly()
+            .AddStrengthSet(60f, reps: 10, weightKg: 60f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.BarbellBackSquat)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+        var lap = summary.Laps[0];
+
+        Assert.NotNull(lap.ExerciseCategoryName);
+        Assert.Contains("Squat", lap.ExerciseCategoryName, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(lap.ExerciseName);
+        Assert.Contains("Barbell", lap.ExerciseName, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Back Squat", lap.ExerciseName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Parse_StrengthTrainingSetsOnly_DurationPopulated()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .WithSetsOnly()
+            .AddStrengthSet(45f, reps: 10, weightKg: 20f,
+                            category: Dynastream.Fit.ExerciseCategory.Squat,
+                            categorySubtype: Dynastream.Fit.SquatExerciseName.AirSquat)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+        var lap = summary.Laps[0];
+
+        Assert.Equal(TimeSpan.FromSeconds(45), lap.TotalTimerTime);
+    }
+
+    [Fact]
+    public void Parse_StrengthTrainingSetsOnly_RestSetMarkedAsRest()
+    {
+        using var stream = new FitFileBuilder()
+            .WithSport(Dynastream.Fit.Sport.Training, Dynastream.Fit.SubSport.StrengthTraining)
+            .WithSetsOnly()
+            .AddStrengthSet(30f, reps: 0, weightKg: 0f, isRest: true)
+            .Build();
+
+        var summary = _parser.Parse(stream);
+
+        Assert.NotNull(summary.Laps[0].IsActiveSet);
+        Assert.False(summary.Laps[0].IsActiveSet!.Value);
+    }
+
+    // ------------------------------------------------------------------
     // Error cases: corrupt / invalid files
     // ------------------------------------------------------------------
 
