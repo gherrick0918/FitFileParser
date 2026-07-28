@@ -60,7 +60,7 @@ From repository root:
      -c Release -f net9.0-android \
      -p:AndroidPackageFormat=apk \
      -p:AndroidKeyStore=true \
-     -p:AndroidSigningKeyStore=/path/to/release.keystore \
+     -p:AndroidSigningKeyStore="C:/path/to/release.keystore" \
      -p:AndroidSigningKeyAlias=wg84fitfileparser \
      -p:AndroidSigningKeyPass=<key-password> \
      -p:AndroidSigningStorePass=<store-password>
@@ -73,13 +73,17 @@ From repository root:
      -c Release -f net9.0-android \
      -p:AndroidPackageFormat=aab \
      -p:AndroidKeyStore=true \
-     -p:AndroidSigningKeyStore=/path/to/release.keystore \
+     -p:AndroidSigningKeyStore="C:/path/to/release.keystore" \
      -p:AndroidSigningKeyAlias=my-key-alias \
      -p:AndroidSigningKeyPass=<key-password> \
      -p:AndroidSigningStorePass=<store-password>
    ```
 
-Replace `/path/to/release.keystore`, `my-key-alias`, `<key-password>`, and `<store-password>` with the values you used when creating the keystore.
+Replace `C:/path/to/release.keystore`, `my-key-alias`, `<key-password>`, and `<store-password>` with the values you used when creating the keystore.
+
+> **Windows / Git Bash (MINGW64) note:** Do **not** use a Unix-style path like `/path/to/release.keystore` for `AndroidSigningKeyStore` when running from Git Bash.  
+> Git Bash automatically converts leading-slash paths into Windows paths relative to the Git installation directory (e.g. `C:/Program Files/Git/path/to/release.keystore`), which does not exist and causes error `XA4310`.  
+> Always supply a full Windows path such as `C:/Users/you/release.keystore` (forward or back slashes both work), or disable path conversion for that argument by prefixing the command with `MSYS_NO_PATHCONV=1`.
 
 ## Notes about framework support warnings
 
