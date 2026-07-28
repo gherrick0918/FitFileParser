@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <FitFileParserTargetFramework>net10.0</FitFileParserTargetFramework>
+    <FitFileParserAndroidTargetFramework>net10.0-android</FitFileParserAndroidTargetFramework>
+  </PropertyGroup>
+</Project>

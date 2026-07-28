@@ -20,7 +20,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -30,6 +30,27 @@ jobs:
 
       - name: Install Android workload
         run: dotnet workload install android
+
+      - name: Validate framework baseline
+        run: |
+          set -euo pipefail
+          if grep -R --include='*.csproj' -nE 'net9\.0|net9\.0-android' src tests; then
+            echo "Found .NET 9 target frameworks. Align projects with Directory.Build.props."
+            exit 1
+          fi
+          required_targets=(
+            '<TargetFramework>$(FitFileParserTargetFramework)</TargetFramework>'
+            '<TargetFramework>$(FitFileParserAndroidTargetFramework)</TargetFramework>'
+          )
+          for target in "${required_targets[@]}"; do
+            if ! grep -R --include='*.csproj' -qF "$target" src tests; then
+              echo "Missing required centralized target framework: $target"
+              exit 1
+            fi
+          done
+
+      - name: Clean
+        run: dotnet clean FitFileParser.slnx --configuration Release
 
       - name: Restore
         run: dotnet restore FitFileParser.slnx
