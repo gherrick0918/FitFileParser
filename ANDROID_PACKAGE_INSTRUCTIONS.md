@@ -32,6 +32,9 @@ From repository root:
    dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android
    ```
 
+   > Important: do not add a trailing slash or backslash after `net9.0-android`.  
+   > `-f net9.0-android\` is invalid and causes `NETSDK1013`.
+
 3. Generate APK:
 
    ```bash
@@ -43,6 +46,11 @@ From repository root:
    ```bash
    dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=aab
    ```
+
+## Notes about framework support warnings
+
+When using .NET 10 SDK with `net9.0-android`, you may see warning `NETSDK1202` indicating the workload is out of support.  
+This warning does not prevent restore/build/publish, but you should plan to move to a supported Android target framework.
 
 ## Output locations
 
