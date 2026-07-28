@@ -1,8 +1,10 @@
 using Android.App;
 using Android.Content;
 using Android.OS;
+using Android.Views;
 using Android.Views.Accessibility;
 using Android.Widget;
+using AndroidX.Core.Content;
 using FitFileParser.Mobile;
 
 namespace FitFileParser.AndroidApp;
@@ -13,6 +15,8 @@ public class MainActivity : Activity
     private const int OpenDocumentRequestCode = 1001;
     private readonly AndroidPortraitReportGenerator _reportGenerator = new();
     private TextView? _statusText;
+    private Button? _openOutputButton;
+    private IReadOnlyList<string> _generatedFiles = [];
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -21,10 +25,16 @@ public class MainActivity : Activity
 
         var selectFileButton = FindViewById<Button>(Resource.Id.selectFileButton);
         _statusText = FindViewById<TextView>(Resource.Id.statusText);
+        _openOutputButton = FindViewById<Button>(Resource.Id.openOutputButton);
 
         if (selectFileButton is not null)
         {
             selectFileButton.Click += (_, _) => OpenFitFilePicker();
+        }
+
+        if (_openOutputButton is not null)
+        {
+            _openOutputButton.Click += (_, _) => OpenGeneratedImage();
         }
 
         if (savedInstanceState is null)
@@ -56,6 +66,8 @@ public class MainActivity : Activity
 
     private void OpenFitFilePicker()
     {
+        SetOpenOutputButtonVisible(false);
+
         if (TryLaunchPicker(Intent.ActionOpenDocument, addOpenableCategory: true))
         {
             SetStatus(GetString(Resource.String.status_launching_picker));
@@ -122,11 +134,34 @@ public class MainActivity : Activity
 
             Directory.CreateDirectory(outputDirectory);
 
-            var generatedPages = await Task.Run(() => _reportGenerator.RenderFromFit(inMemoryFit, outputDirectory));
-            SetStatus(string.Format(GetString(Resource.String.status_success), generatedPages.Count, outputDirectory));
+            _generatedFiles = await Task.Run(() => _reportGenerator.RenderFromFit(inMemoryFit, outputDirectory));
+            SetStatus(string.Format(GetString(Resource.String.status_success), _generatedFiles.Count));
+            SetOpenOutputButtonVisible(_generatedFiles.Count > 0);
         }
         catch (Exception ex)
         {
+            SetStatus(string.Format(GetString(Resource.String.status_error), ex.Message));
+        }
+    }
+
+    private void OpenGeneratedImage()
+    {
+        try
+        {
+            // Open only the first page; if multiple pages were generated the user can tap again
+            // after viewing to check the others, or a future update can add a gallery intent.
+            var file = new Java.IO.File(_generatedFiles[0]);
+            var authority = $"{PackageName}.fileprovider";
+            var uri = FileProvider.GetUriForFile(this, authority, file);
+
+            var intent = new Intent(Intent.ActionView);
+            intent.SetDataAndType(uri, "image/png");
+            intent.AddFlags(ActivityFlags.GrantReadUriPermission);
+            StartActivity(intent);
+        }
+        catch (Exception ex)
+        {
+            Android.Util.Log.Error(nameof(MainActivity), ex, "Failed to open generated image.");
             SetStatus(string.Format(GetString(Resource.String.status_error), ex.Message));
         }
     }
@@ -138,6 +173,17 @@ public class MainActivity : Activity
             if (_statusText is not null)
             {
                 _statusText.Text = status;
+            }
+        });
+    }
+
+    private void SetOpenOutputButtonVisible(bool visible)
+    {
+        RunOnUiThread(() =>
+        {
+            if (_openOutputButton is not null)
+            {
+                _openOutputButton.Visibility = visible ? ViewStates.Visible : ViewStates.Gone;
             }
         });
     }

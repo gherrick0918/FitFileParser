@@ -5,7 +5,8 @@
     <string name="status_idle">Status: waiting for file selection.</string>
     <string name="status_launching_picker">Status: opening file picker...</string>
     <string name="status_generating">Status: generating report pages...</string>
-    <string name="status_success">Status: generated %1$d page(s). Output: %2$s</string>
+    <string name="status_success">Generated %1$d page(s) saved to app storage. Tap the button below to open the image(s).</string>
+    <string name="open_output">Open Generated Image</string>
     <string name="status_error">Status: failed - %1$s</string>
     <string name="status_picker_cancelled">Status: file selection cancelled. Tap Select FIT File to try again.</string>
     <string name="status_picker_fallback">Status: using alternate file picker.</string>
