@@ -9,7 +9,7 @@ Use the steps below to generate installable Android packages.
 ## Prerequisites
 
 1. Install [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10) (`10.0.x`).
-   - Repository baseline is pinned in `global.json` (`10.0.110`).
+   - Repository baseline is pinned in `global.json` (`10.0.302`).
 2. Install Java 17 (required by Android tooling).
 3. Install Android workload:
 
@@ -56,6 +56,9 @@ From repository root:
    ```bash
    dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net10.0-android
    ```
+
+   `net10.0-android` should always match
+   `FitFileParserAndroidTargetFramework` in `Directory.Build.props`.
 
    > Important: do not add a trailing slash or backslash after `net10.0-android`.  
    > `-f net10.0-android\` is invalid and causes `NETSDK1013`.

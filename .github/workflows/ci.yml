@@ -38,10 +38,16 @@ jobs:
             echo "Found .NET 9 target frameworks. Align projects with Directory.Build.props."
             exit 1
           fi
-          if ! grep -R --include='*.csproj' -nE '<TargetFramework>\$\(FitFileParser(TargetFramework|AndroidTargetFramework)\)</TargetFramework>' src tests; then
-            echo "Projects must use centralized framework properties from Directory.Build.props."
-            exit 1
-          fi
+          required_targets=(
+            '<TargetFramework>$(FitFileParserTargetFramework)</TargetFramework>'
+            '<TargetFramework>$(FitFileParserAndroidTargetFramework)</TargetFramework>'
+          )
+          for target in "${required_targets[@]}"; do
+            if ! grep -R --include='*.csproj' -qF "$target" src tests; then
+              echo "Missing required centralized target framework: $target"
+              exit 1
+            fi
+          done
 
       - name: Clean
         run: dotnet clean FitFileParser.slnx --configuration Release

@@ -13,7 +13,7 @@ platforms.
 ## Requirements
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10) (`10.0.x`)
-- SDK is pinned in `global.json` (current baseline: `10.0.110`)
+- SDK is pinned in `global.json` (current baseline: `10.0.302`)
 - .NET Android workload (`dotnet workload install android`) for building the Android app project
 
 ## Clean + restore after framework updates
@@ -91,6 +91,9 @@ dotnet clean src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Rel
 dotnet restore src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj
 dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -f net10.0-android
 ```
+
+`net10.0-android` should always match the Android baseline in
+`Directory.Build.props` (`FitFileParserAndroidTargetFramework`).
 
 Create a release package:
 
