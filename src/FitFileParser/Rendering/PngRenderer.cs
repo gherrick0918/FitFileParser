@@ -390,6 +390,9 @@ public sealed class PngRenderer
         bool usePace = activity.Laps.Any(l => l.AvgPacePerMile.HasValue);
         bool compact = _layout.PageWidthPx <= CompactLapTableWidthThresholdPx;
 
+        if (IsStrengthActivity(activity))
+            return BuildStrengthLapColumns(compact);
+
         if (compact)
         {
             return
@@ -449,6 +452,67 @@ public sealed class PngRenderer
             new("CALS",     0.05f, true, lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"),
             new("TEMP °F",  0.05f, true, lap => lap.AvgTemperatureF.HasValue ? $"{lap.AvgTemperatureF.Value:F0}°" : "—"),
         ];
+    }
+
+    /// <summary>
+    /// Returns true when the activity is a strength / gym training activity based on
+    /// sport metadata or the presence of per-set data (reps / weight) in any lap.
+    /// </summary>
+    private static bool IsStrengthActivity(ActivitySummary activity)
+    {
+        // Sub-sport flag is the most reliable indicator.
+        var subSport = activity.SubSport ?? string.Empty;
+        if (subSport.Equals("StrengthTraining", StringComparison.OrdinalIgnoreCase) ||
+            subSport.Equals("Hiit", StringComparison.OrdinalIgnoreCase)             ||
+            subSport.Equals("Amrap", StringComparison.OrdinalIgnoreCase)             ||
+            subSport.Equals("Emom", StringComparison.OrdinalIgnoreCase)              ||
+            subSport.Equals("Tabata", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Fall back to per-set data presence (handles non-structured gym recordings).
+        return activity.Laps.Any(l => l.NumReps.HasValue || l.WeightKg.HasValue || l.ExerciseName is not null);
+    }
+
+    /// <summary>
+    /// Builds lap columns tailored for strength training: set number, type,
+    /// duration, exercise name, reps, weight, heart rate, and calories.
+    /// </summary>
+    private LapColumn[] BuildStrengthLapColumns(bool compact)
+    {
+        if (compact)
+        {
+            return
+            [
+                new("SET",      0.06f, false, lap => lap.LapNumber.ToString()),
+                new("TYPE",     0.10f, false, lap => lap.IsActiveSet.HasValue ? (lap.IsActiveSet.Value ? "Active" : "Rest") : "—"),
+                new("TIME",     0.14f, true,  lap => FormatElapsed(lap.TotalTimerTime)),
+                new("EXERCISE", 0.30f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, 20)),
+                new("REPS",     0.10f, true,  lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"),
+                new("WT lbs",   0.14f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F1}" : "—"),
+                new("HR",       0.08f, true,  lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
+                new("CALS",     0.08f, true,  lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"),
+            ];
+        }
+
+        return
+        [
+            new("SET",      0.04f, false, lap => lap.LapNumber.ToString()),
+            new("TYPE",     0.08f, false, lap => lap.IsActiveSet.HasValue ? (lap.IsActiveSet.Value ? "Active" : "Rest") : "—"),
+            new("TIME",     0.09f, true,  lap => FormatElapsed(lap.TotalTimerTime)),
+            new("EXERCISE", 0.31f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, 28)),
+            new("REPS",     0.07f, true,  lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"),
+            new("WT lbs",   0.10f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F1} lb" : "—"),
+            new("AVG HR",   0.07f, true,  lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
+            new("MAX HR",   0.07f, true,  lap => lap.MaxHeartRate.HasValue ? lap.MaxHeartRate.ToString()! : "—"),
+            new("CALS",     0.07f, true,  lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"),
+            new("TEMP °F",  0.10f, true,  lap => lap.AvgTemperatureF.HasValue ? $"{lap.AvgTemperatureF.Value:F0}°" : "—"),
+        ];
+    }
+
+    private static string TruncateExerciseName(string? name, int maxLen)
+    {
+        if (name is null) return "—";
+        return name.Length <= maxLen ? name : name[..maxLen] + "…";
     }
 
     private float DrawLapTable(SKCanvas canvas, ActivitySummary activity,

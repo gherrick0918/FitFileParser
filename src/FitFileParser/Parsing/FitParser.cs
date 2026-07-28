@@ -1,5 +1,6 @@
 using Dynastream.Fit;
 using FitFileParser.Models;
+using System.Reflection;
 using FitDateTime = Dynastream.Fit.DateTime;
 using SysDateTime = System.DateTime;
 
@@ -15,6 +16,58 @@ public sealed class FitParser
     private const float MetersPerFoot = 0.3048f;
     private const float MmPerInch = 25.4f;
     private const float MetersPerYard = 0.9144f;
+    private const float KgPerLb = 0.45359237f;
+
+    // ── Exercise name lookup: (ExerciseCategory, CategorySubtype) → readable name ──────
+    // Built once via reflection from the Garmin FIT SDK exercise-name constant types.
+    private static readonly IReadOnlyDictionary<(ushort Category, ushort Subtype), string> ExerciseNameMap
+        = BuildExerciseNameMap();
+
+    private static Dictionary<(ushort, ushort), string> BuildExerciseNameMap()
+    {
+        var map = new Dictionary<(ushort, ushort), string>();
+        var assembly = typeof(ExerciseCategory).Assembly;
+        var exCatType = typeof(ExerciseCategory);
+
+        foreach (var catField in exCatType.GetFields(BindingFlags.Public | BindingFlags.Static)
+                     .Where(f => f.FieldType == typeof(ushort)))
+        {
+            ushort catValue = (ushort)catField.GetValue(null)!;
+            if (catValue >= 65534) continue; // Unknown / Invalid
+
+            string nameTypeName = $"Dynastream.Fit.{catField.Name}ExerciseName";
+            var nameType = assembly.GetType(nameTypeName);
+            if (nameType is null) continue;
+
+            foreach (var nameField in nameType.GetFields(BindingFlags.Public | BindingFlags.Static)
+                         .Where(f => f.FieldType == typeof(ushort)))
+            {
+                if (nameField.Name == "Invalid") continue;
+                ushort subtypeValue = (ushort)nameField.GetValue(null)!;
+                if (subtypeValue == 65535) continue;
+                var key = (catValue, subtypeValue);
+                if (!map.ContainsKey(key))
+                    map[key] = PascalToWords(nameField.Name);
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>Inserts a space before each uppercase letter that follows a lower-case letter.</summary>
+    private static string PascalToWords(string pascal)
+    {
+        if (string.IsNullOrEmpty(pascal)) return pascal;
+        var sb = new System.Text.StringBuilder(pascal.Length + 8);
+        sb.Append(pascal[0]);
+        for (int i = 1; i < pascal.Length; i++)
+        {
+            if (char.IsUpper(pascal[i]) && char.IsLower(pascal[i - 1]))
+                sb.Append(' ');
+            sb.Append(pascal[i]);
+        }
+        return sb.ToString();
+    }
 
     /// <summary>
     /// Parses the provided stream as a FIT activity file.
@@ -41,9 +94,11 @@ public sealed class FitParser
 
         SessionMesg? sessionMesg = null;
         var lapMesgs = new List<LapMesg>();
+        var setMesgs = new List<SetMesg>();
 
         broadcaster.SessionMesgEvent += (_, e) => sessionMesg = e.mesg as SessionMesg;
         broadcaster.LapMesgEvent += (_, e) => { if (e.mesg is LapMesg lap) lapMesgs.Add(lap); };
+        broadcaster.SetMesgEvent += (_, e) => { if (e.mesg is SetMesg set) setMesgs.Add(set); };
 
         stream.Position = 0;
         try
@@ -58,7 +113,7 @@ public sealed class FitParser
         if (sessionMesg is null)
             throw new FitParseException("No session message found in the FIT file.");
 
-        return BuildActivitySummary(sessionMesg, lapMesgs);
+        return BuildActivitySummary(sessionMesg, lapMesgs, setMesgs);
     }
 
     private static void ValidateStream(Stream stream)
@@ -74,10 +129,13 @@ public sealed class FitParser
             throw new FitParseException("The FIT file failed the integrity check (header or CRC mismatch).");
     }
 
-    private static ActivitySummary BuildActivitySummary(SessionMesg session, List<LapMesg> lapMesgs)
+    private static ActivitySummary BuildActivitySummary(SessionMesg session, List<LapMesg> lapMesgs, List<SetMesg> setMesgs)
     {
+        // Build a set-data lookup keyed by end-timestamp for quick correlation with laps.
+        var setByTime = BuildSetByTimeLookup(setMesgs);
+
         var laps = lapMesgs
-            .Select((lap, index) => BuildLapSummary(lap, index + 1))
+            .Select((lap, index) => BuildLapSummary(lap, index + 1, setByTime))
             .ToList();
 
         return new ActivitySummary
@@ -190,8 +248,36 @@ public sealed class FitParser
         };
     }
 
-    private static LapSummary BuildLapSummary(LapMesg lap, int lapNumber)
+    private static LapSummary BuildLapSummary(LapMesg lap, int lapNumber, Dictionary<SysDateTime, SetMesg> setByTime)
     {
+        // Correlate this lap with the closest matching SetMesg (within 10 s).
+        SetMesg? matchedSet = FindMatchingSet(lap, setByTime);
+
+        string? exerciseCategoryName = null;
+        string? exerciseName = null;
+        bool? isActiveSet = null;
+        ushort? numReps = null;
+        float? weightKg = null;
+        float? weightLbs = null;
+
+        if (matchedSet is not null)
+        {
+            isActiveSet = matchedSet.GetSetType() == SetType.Active;
+            numReps = matchedSet.GetRepetitions();
+            weightKg = matchedSet.GetWeight();
+            weightLbs = weightKg.HasValue ? weightKg.Value / KgPerLb : null;
+
+            ushort? category = matchedSet.GetNumCategory() > 0 ? matchedSet.GetCategory(0) : null;
+            ushort? subtype  = matchedSet.GetNumCategorySubtype() > 0 ? matchedSet.GetCategorySubtype(0) : null;
+
+            if (category.HasValue)
+            {
+                exerciseCategoryName = ResolveCategoryName(category.Value);
+                if (subtype.HasValue && ExerciseNameMap.TryGetValue((category.Value, subtype.Value), out string? resolvedName))
+                    exerciseName = resolvedName;
+            }
+        }
+
         return new LapSummary
         {
             // Identity
@@ -271,10 +357,91 @@ public sealed class FitParser
             TotalCycles = lap.GetTotalCycles(),
             AvgStrokeDistanceYards = lap.GetAvgStrokeDistance().HasValue
                 ? lap.GetAvgStrokeDistance()!.Value / MetersPerYard : null,
+            NumLengths = lap.GetNumLengths(),
+            NumActiveLengths = lap.GetNumActiveLengths(),
 
             // Physiology
             AvgRespirationRate = lap.GetEnhancedAvgRespirationRate() ?? lap.GetAvgRespirationRate(),
+
+            // Strength Training
+            IsActiveSet = isActiveSet,
+            NumReps = numReps,
+            WeightKg = weightKg,
+            WeightLbs = weightLbs,
+            ExerciseCategoryName = exerciseCategoryName,
+            ExerciseName = exerciseName,
         };
+    }
+
+    // ── Set ↔ Lap correlation helpers ────────────────────────────────────
+
+    /// <summary>
+    /// Builds a lookup from <see cref="SetMesg"/> end-timestamp (rounded to second)
+    /// to the message itself. When multiple sets share the same second (rare), the last
+    /// one wins – actual data should never collide.
+    /// </summary>
+    private static Dictionary<SysDateTime, SetMesg> BuildSetByTimeLookup(List<SetMesg> sets)
+    {
+        var dict = new Dictionary<SysDateTime, SetMesg>();
+        foreach (var s in sets)
+        {
+            var ts = s.GetTimestamp()?.GetDateTime();
+            if (ts.HasValue)
+                dict[RoundToSecond(ts.Value)] = s;
+        }
+        return dict;
+    }
+
+    /// <summary>
+    /// Finds the <see cref="SetMesg"/> whose timestamp is closest to the lap's
+    /// end-timestamp and is within a 10-second tolerance.
+    /// </summary>
+    private static SetMesg? FindMatchingSet(LapMesg lap, Dictionary<SysDateTime, SetMesg> setByTime)
+    {
+        if (setByTime.Count == 0) return null;
+
+        var lapEndTime = lap.GetTimestamp()?.GetDateTime();
+        if (!lapEndTime.HasValue) return null;
+
+        SysDateTime lapRounded = RoundToSecond(lapEndTime.Value);
+
+        // Exact match first.
+        if (setByTime.TryGetValue(lapRounded, out var exact)) return exact;
+
+        // Nearest within ±10 seconds.
+        const int toleranceSec = 10;
+        SetMesg? best = null;
+        double bestDiff = double.MaxValue;
+
+        foreach (var kvp in setByTime)
+        {
+            double diff = Math.Abs((kvp.Key - lapRounded).TotalSeconds);
+            if (diff < bestDiff && diff <= toleranceSec)
+            {
+                bestDiff = diff;
+                best = kvp.Value;
+            }
+        }
+
+        return best;
+    }
+
+    private static SysDateTime RoundToSecond(SysDateTime dt) =>
+        new SysDateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, dt.Kind);
+
+    /// <summary>
+    /// Returns the human-readable name for an <see cref="ExerciseCategory"/> value,
+    /// or null for unknown/invalid values.
+    /// </summary>
+    private static string? ResolveCategoryName(ushort categoryValue)
+    {
+        if (categoryValue >= 65534) return null;
+        foreach (var f in typeof(ExerciseCategory).GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            if (f.FieldType == typeof(ushort) && (ushort)f.GetValue(null)! == categoryValue)
+                return PascalToWords(f.Name);
+        }
+        return null;
     }
 
     // ── Unit conversion helpers ───────────────────────────────────────────

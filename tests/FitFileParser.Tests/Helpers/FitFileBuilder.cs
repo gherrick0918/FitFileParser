@@ -21,6 +21,7 @@ internal sealed class FitFileBuilder
     private ushort? _avgPower = null;
     private float? _totalTrainingEffect = null;
     private readonly List<LapSpec> _laps = [];
+    private readonly List<StrengthSetSpec> _strengthSets = [];
     private bool _corruptCrc = false;
     private bool _truncate = false;
 
@@ -47,6 +48,26 @@ internal sealed class FitFileBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a strength training set. Each set emits both a <see cref="LapMesg"/> and
+    /// a <see cref="SetMesg"/> so that the correlation logic in <c>FitParser</c> is
+    /// exercised by tests.
+    /// </summary>
+    /// <param name="durationSec">Duration of the set in seconds.</param>
+    /// <param name="reps">Number of repetitions.</param>
+    /// <param name="weightKg">Load in kilograms (pass 0 for bodyweight).</param>
+    /// <param name="category">FIT ExerciseCategory constant (e.g. <see cref="ExerciseCategory.Squat"/>).</param>
+    /// <param name="categorySubtype">Exercise-specific sub-type constant (e.g. <c>SquatExerciseName.BarbellBackSquat</c>).</param>
+    /// <param name="isRest">True to mark this entry as a rest period instead of an active set.</param>
+    public FitFileBuilder AddStrengthSet(float durationSec, ushort reps = 10, float weightKg = 0f,
+                                         ushort category = ExerciseCategory.Squat,
+                                         ushort categorySubtype = 0,
+                                         bool isRest = false)
+    {
+        _strengthSets.Add(new StrengthSetSpec(durationSec, reps, weightKg, category, categorySubtype, isRest));
+        return this;
+    }
+
     public Stream Build()
     {
         var ms = new MemoryStream();
@@ -55,7 +76,12 @@ internal sealed class FitFileBuilder
 
         WriteFileId(enc);
         WriteSession(enc);
-        WriteLaps(enc);
+
+        if (_strengthSets.Count > 0)
+            WriteStrengthSets(enc);
+        else
+            WriteLaps(enc);
+
         WriteActivity(enc);
 
         enc.Close();
@@ -137,6 +163,40 @@ internal sealed class FitFileBuilder
         }
     }
 
+    private void WriteStrengthSets(Encode enc)
+    {
+        float elapsed = 0f;
+
+        for (int i = 0; i < _strengthSets.Count; i++)
+        {
+            var spec = _strengthSets[i];
+            var setStartTime = _startTime.AddSeconds(elapsed);
+            var setEndTime   = setStartTime.AddSeconds(spec.DurationSec);
+
+            // LapMesg – one per set (mirrors how Garmin devices behave)
+            var lap = new LapMesg();
+            lap.SetTimestamp(new FitDateTime(setEndTime));
+            lap.SetStartTime(new FitDateTime(setStartTime));
+            lap.SetTotalElapsedTime(spec.DurationSec);
+            lap.SetTotalTimerTime(spec.DurationSec);
+            enc.Write(lap);
+
+            // SetMesg – contains exercise details for this set
+            var set = new SetMesg();
+            set.SetTimestamp(new FitDateTime(setEndTime));
+            set.SetStartTime(new FitDateTime(setStartTime));
+            set.SetDuration(spec.DurationSec);
+            set.SetRepetitions(spec.Reps);
+            set.SetWeight(spec.WeightKg);
+            set.SetSetType(spec.IsRest ? SetType.Rest : SetType.Active);
+            set.SetCategory(0, spec.Category);
+            set.SetCategorySubtype(0, spec.CategorySubtype);
+            enc.Write(set);
+
+            elapsed += spec.DurationSec;
+        }
+    }
+
     private void WriteActivity(Encode enc)
     {
         var msg = new ActivityMesg();
@@ -151,4 +211,7 @@ internal sealed class FitFileBuilder
 
     private record LapSpec(float DurationSec, float DistanceM,
                            byte? AvgHr, float? AvgSpeedMps, ushort? AvgPower);
+
+    private record StrengthSetSpec(float DurationSec, ushort Reps, float WeightKg,
+                                   ushort Category, ushort CategorySubtype, bool IsRest);
 }

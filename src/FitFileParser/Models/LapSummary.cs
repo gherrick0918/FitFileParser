@@ -81,7 +81,25 @@ public sealed class LapSummary
     public uint? TotalCycles { get; init; }
     /// <summary>Average distance per stroke in yards.</summary>
     public float? AvgStrokeDistanceYards { get; init; }
+    /// <summary>Total pool lengths (including rest lengths) in this lap interval.</summary>
+    public ushort? NumLengths { get; init; }
+    /// <summary>Active (non-rest) pool lengths in this lap interval.</summary>
+    public ushort? NumActiveLengths { get; init; }
 
     // ── Physiology ────────────────────────────────────────────────────────
     public float? AvgRespirationRate { get; init; }
+
+    // ── Strength Training ─────────────────────────────────────────────────
+    /// <summary>True = working/active set; false = rest period.</summary>
+    public bool? IsActiveSet { get; init; }
+    /// <summary>Number of repetitions performed in this set.</summary>
+    public ushort? NumReps { get; init; }
+    /// <summary>Load used in this set, in kilograms.</summary>
+    public float? WeightKg { get; init; }
+    /// <summary>Load used in this set, in pounds (derived from <see cref="WeightKg"/>).</summary>
+    public float? WeightLbs { get; init; }
+    /// <summary>Exercise category name (e.g., "Squat", "BenchPress").</summary>
+    public string? ExerciseCategoryName { get; init; }
+    /// <summary>Specific exercise name resolved from category and sub-type (e.g., "Barbell Back Squat").</summary>
+    public string? ExerciseName { get; init; }
 }
