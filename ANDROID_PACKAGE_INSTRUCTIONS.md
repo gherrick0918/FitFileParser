@@ -74,7 +74,7 @@ From repository root:
      -p:AndroidPackageFormat=aab \
      -p:AndroidKeyStore=true \
      -p:AndroidSigningKeyStore="C:/path/to/release.keystore" \
-     -p:AndroidSigningKeyAlias=my-key-alias \
+     -p:AndroidSigningKeyAlias=wg84fitfileparser \
      -p:AndroidSigningKeyPass=<key-password> \
      -p:AndroidSigningStorePass=<store-password>
    ```
