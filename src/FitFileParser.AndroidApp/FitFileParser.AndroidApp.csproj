@@ -5,7 +5,8 @@
     <OutputType>Exe</OutputType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationId>com.gherrick0918.fitfileparser.androidapp</ApplicationId>
+    <ApplicationId>com.gherrick0918.fitfileparser</ApplicationId>
+    <ApplicationTitle>Fit File Parser</ApplicationTitle>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <!--

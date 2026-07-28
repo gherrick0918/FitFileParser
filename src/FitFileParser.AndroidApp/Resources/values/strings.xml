@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">FitFileParser Android</string>
+    <string name="app_name">Fit File Parser</string>
     <string name="app_intro">Select a .fit file to generate Android portrait PNG report pages.</string>
     <string name="select_fit_file">Select FIT File</string>
     <string name="status_idle">Status: waiting for file selection.</string>
