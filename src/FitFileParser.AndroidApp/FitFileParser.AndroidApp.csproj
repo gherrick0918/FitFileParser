@@ -17,6 +17,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Xamarin.AndroidX.Core" Version="1.16.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\FitFileParser.Mobile\FitFileParser.Mobile.csproj" />
   </ItemGroup>
 </Project>
