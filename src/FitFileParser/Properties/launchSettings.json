@@ -2,7 +2,7 @@
   "profiles": {
     "FitFileParser": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\dev\\FitFileParser\\input\\23753616494_ACTIVITY.fit\""
+      "commandLineArgs": "\"C:\\dev\\FitFileParser\\input\\23781528247_ACTIVITY.fit\""
     }
   }
 }
