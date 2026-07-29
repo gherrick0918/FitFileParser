@@ -8,20 +8,14 @@ platforms.
 
 - Running (outdoor and treadmill)
 - Cycling
+- Strength Training (with automatic column hiding for missing data)
+- Swimming
 - Any sport recorded by a Garmin or FIT-compatible device
 
 ## Requirements
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10) (`10.0.x`)
-- SDK is pinned in `global.json` (current baseline: `10.0.302`)
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9) or later
 - .NET Android workload (`dotnet workload install android`) for building the Android app project
-
-## Clean + restore after framework updates
-
-```bash
-dotnet clean FitFileParser.slnx -c Release
-dotnet restore FitFileParser.slnx
-```
 
 ## Build
 
@@ -118,8 +112,6 @@ dotnet test FitFileParser.slnx
 
 - Maps and route visualization
 - Charts (HR, pace, power over time)
-- Strength / indoor-cycling workouts
-- Multi-sport / triathlon transition sessions
 - Developer-defined FIT fields
 - Output formats other than PNG
 

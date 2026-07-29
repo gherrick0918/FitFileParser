@@ -66,14 +66,41 @@ public sealed class PngRenderer
         var pages = Paginate(activity);
         var outputPaths = new List<string>(pages.Count);
 
+        // Generate base filename from activity metadata
+        string baseFileName = BuildBaseFileName(activity);
+
         for (int i = 0; i < pages.Count; i++)
         {
-            var path = Path.Combine(outputDirectory, $"activity-page{i + 1}.png");
+            string fileName = pages.Count == 1
+                ? $"{baseFileName}.png"
+                : $"{baseFileName}_page{i + 1}.png";
+            
+            var path = Path.Combine(outputDirectory, fileName);
             RenderPage(activity, pages[i], i + 1, pages.Count, path);
             outputPaths.Add(path);
         }
 
         return outputPaths;
+    }
+
+    private static string BuildBaseFileName(ActivitySummary activity)
+    {
+        // Build a descriptive base filename
+        string sport = SanitizeFileName(activity.Sport ?? "activity");
+        if (!string.IsNullOrEmpty(activity.SubSport))
+            sport += $"-{SanitizeFileName(activity.SubSport)}";
+
+        string date = activity.StartTime.ToString("yyyy-MM-dd");
+        string time = activity.StartTime.ToString("HHmm");
+
+        return $"{sport}_{date}_{time}";
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars();
+        return string.Join("_", name.Split(invalidChars, StringSplitOptions.RemoveEmptyEntries))
+            .Replace(" ", "-");
     }
 
     // -----------------------------------------------------------------
@@ -121,6 +148,13 @@ public sealed class PngRenderer
         y = DrawHeader(canvas, activity, pageNum, totalPages, y);
         y += SectionGap;
 
+        // Draw notes on first page if present
+        if (pageNum == 1 && !string.IsNullOrWhiteSpace(activity.Notes))
+        {
+            y = DrawNotes(canvas, activity.Notes, y);
+            y += SectionGap;
+        }
+
         if (pageNum == 1)
         {
             int overviewColumns = ResolveOverviewColumnCount(activity);
@@ -162,6 +196,101 @@ public sealed class PngRenderer
         float divY = y + HeaderHeight - 8f;
         DrawLine(canvas, _layout.MarginPx, divY, _layout.PageWidthPx - _layout.MarginPx, divY, ColorDivider);
         return divY + 8f;
+    }
+
+    // -----------------------------------------------------------------
+    // Notes section
+    // -----------------------------------------------------------------
+
+    private float DrawNotes(SKCanvas canvas, string notes, float y)
+    {
+        // Section header
+        DrawText(canvas, "NOTES", _layout.MarginPx, y + 18f, ColorAccent, 14f, bold: true);
+        y += 28f;
+
+        // Notes box with background
+        float maxWidth = _layout.PageWidthPx - _layout.MarginPx * 2 - 16f;
+        var lines = WrapText(notes, 14f, maxWidth);
+        float boxHeight = lines.Count * LineHeight + 16f;
+        
+        // Draw box background
+        using var boxPaint = new SKPaint
+        {
+            Color = new SKColor(0xF8, 0xF9, 0xFA),
+            Style = SKPaintStyle.Fill
+        };
+        var boxRect = new SKRect(
+            _layout.MarginPx,
+            y,
+            _layout.PageWidthPx - _layout.MarginPx,
+            y + boxHeight
+        );
+        canvas.DrawRoundRect(boxRect, 4f, 4f, boxPaint);
+
+        // Draw box border
+        using var borderPaint = new SKPaint
+        {
+            Color = ColorDivider,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 1f
+        };
+        canvas.DrawRoundRect(boxRect, 4f, 4f, borderPaint);
+
+        // Draw notes text
+        float textY = y + 24f;
+        foreach (var line in lines)
+        {
+            DrawText(canvas, line, _layout.MarginPx + 8f, textY, ColorText, 14f);
+            textY += LineHeight;
+        }
+
+        return y + boxHeight;
+    }
+
+    private List<string> WrapText(string text, float fontSize, float maxWidth)
+    {
+        var lines = new List<string>();
+        var paragraphs = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+        using var typeface = SKTypeface.FromFamilyName("Segoe UI", SKFontStyle.Normal);
+        using var font = new SKFont(typeface, fontSize);
+        using var paint = new SKPaint();
+
+        foreach (var paragraph in paragraphs)
+        {
+            if (string.IsNullOrWhiteSpace(paragraph))
+            {
+                lines.Add(string.Empty);
+                continue;
+            }
+
+            var words = paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var currentLine = new System.Text.StringBuilder();
+
+            foreach (var word in words)
+            {
+                var testLine = currentLine.Length == 0 ? word : $"{currentLine} {word}";
+                var testWidth = font.MeasureText(testLine, paint);
+
+                if (testWidth > maxWidth && currentLine.Length > 0)
+                {
+                    lines.Add(currentLine.ToString());
+                    currentLine.Clear();
+                    currentLine.Append(word);
+                }
+                else
+                {
+                    if (currentLine.Length > 0)
+                        currentLine.Append(' ');
+                    currentLine.Append(word);
+                }
+            }
+
+            if (currentLine.Length > 0)
+                lines.Add(currentLine.ToString());
+        }
+
+        return lines;
     }
 
     // -----------------------------------------------------------------
@@ -394,7 +523,7 @@ public sealed class PngRenderer
         bool compact = _layout.PageWidthPx <= CompactLapTableWidthThresholdPx;
 
         if (IsStrengthActivity(activity))
-            return BuildStrengthLapColumns(compact);
+            return BuildStrengthLapColumns(activity, compact);
 
         if (compact)
         {
@@ -479,37 +608,64 @@ public sealed class PngRenderer
     /// <summary>
     /// Builds lap columns tailored for strength training: set number, type,
     /// duration, exercise name, reps, weight, heart rate, and calories.
+    /// Only includes columns that have at least one non-null value across all laps.
     /// </summary>
-    private LapColumn[] BuildStrengthLapColumns(bool compact)
+    private LapColumn[] BuildStrengthLapColumns(ActivitySummary activity, bool compact)
     {
+        // Check which columns have data
+        bool hasReps = activity.Laps.Any(l => l.NumReps.HasValue);
+        bool hasWeight = activity.Laps.Any(l => l.WeightLbs.HasValue);
+        bool hasAvgHr = activity.Laps.Any(l => l.AvgHeartRate.HasValue);
+        bool hasMaxHr = activity.Laps.Any(l => l.MaxHeartRate.HasValue);
+        bool hasCalories = activity.Laps.Any(l => l.TotalCalories.HasValue);
+        bool hasTemp = activity.Laps.Any(l => l.AvgTemperatureF.HasValue);
+
+        var columns = new List<LapColumn>();
+
         if (compact)
         {
-            return
-            [
-                new("SET",      0.06f, false, lap => lap.LapNumber.ToString()),
-                new("TYPE",     0.10f, false, lap => lap.IsActiveSet.HasValue ? (lap.IsActiveSet.Value ? "Active" : "Rest") : "—"),
-                new("TIME",     0.14f, true,  lap => FormatElapsed(lap.TotalTimerTime)),
-                new("EXERCISE", 0.30f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, CompactExerciseNameMaxLength)),
-                new("REPS",     0.10f, true,  lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"),
-                new("WT lbs",   0.14f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F0}" : "—"),
-                new("HR",       0.08f, true,  lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
-                new("CALS",     0.08f, true,  lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"),
-            ];
+            // Core columns (always present)
+            columns.Add(new("SET", 0.06f, false, lap => lap.LapNumber.ToString()));
+            columns.Add(new("TYPE", 0.10f, false, lap => lap.IsActiveSet.HasValue ? (lap.IsActiveSet.Value ? "Active" : "Rest") : "—"));
+            columns.Add(new("TIME", 0.14f, true, lap => FormatElapsed(lap.TotalTimerTime)));
+            columns.Add(new("EXERCISE", 0.30f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, CompactExerciseNameMaxLength)));
+
+            // Optional columns (only if data exists)
+            if (hasReps)
+                columns.Add(new("REPS", 0.10f, true, lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"));
+            if (hasWeight)
+                columns.Add(new("WT lbs", 0.14f, true, lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F0}" : "—"));
+            if (hasAvgHr)
+                columns.Add(new("HR", 0.08f, true, lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"));
+            if (hasCalories)
+                columns.Add(new("CALS", 0.08f, true, lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"));
+        }
+        else
+        {
+            // Core columns (always present)
+            columns.Add(new("SET", 0.04f, false, lap => lap.LapNumber.ToString()));
+            columns.Add(new("TYPE", 0.08f, false, lap => lap.IsActiveSet.HasValue ? (lap.IsActiveSet.Value ? "Active" : "Rest") : "—"));
+            columns.Add(new("TIME", 0.09f, true, lap => FormatElapsed(lap.TotalTimerTime)));
+            columns.Add(new("EXERCISE", 0.31f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, FullWidthExerciseNameMaxLength)));
+
+            // Optional columns (only if data exists)
+            if (hasReps)
+                columns.Add(new("REPS", 0.07f, true, lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"));
+            if (hasWeight)
+                columns.Add(new("WT lbs", 0.10f, true, lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F0} lb" : "—"));
+            if (hasAvgHr)
+                columns.Add(new("AVG HR", 0.07f, true, lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"));
+            if (hasMaxHr)
+                columns.Add(new("MAX HR", 0.07f, true, lap => lap.MaxHeartRate.HasValue ? lap.MaxHeartRate.ToString()! : "—"));
+            if (hasCalories)
+                columns.Add(new("CALS", 0.07f, true, lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"));
+            if (hasTemp)
+                columns.Add(new("TEMP °F", 0.10f, true, lap => lap.AvgTemperatureF.HasValue ? $"{lap.AvgTemperatureF.Value:F0}°" : "—"));
         }
 
-        return
-        [
-            new("SET",      0.04f, false, lap => lap.LapNumber.ToString()),
-            new("TYPE",     0.08f, false, lap => lap.IsActiveSet.HasValue ? (lap.IsActiveSet.Value ? "Active" : "Rest") : "—"),
-            new("TIME",     0.09f, true,  lap => FormatElapsed(lap.TotalTimerTime)),
-            new("EXERCISE", 0.31f, false, lap => TruncateExerciseName(lap.ExerciseName ?? lap.ExerciseCategoryName, FullWidthExerciseNameMaxLength)),
-            new("REPS",     0.07f, true,  lap => lap.NumReps.HasValue ? lap.NumReps.ToString()! : "—"),
-            new("WT lbs",   0.10f, true,  lap => lap.WeightLbs.HasValue ? $"{lap.WeightLbs.Value:F0} lb" : "—"),
-            new("AVG HR",   0.07f, true,  lap => lap.AvgHeartRate.HasValue ? lap.AvgHeartRate.ToString()! : "—"),
-            new("MAX HR",   0.07f, true,  lap => lap.MaxHeartRate.HasValue ? lap.MaxHeartRate.ToString()! : "—"),
-            new("CALS",     0.07f, true,  lap => lap.TotalCalories.HasValue ? lap.TotalCalories.ToString()! : "—"),
-            new("TEMP °F",  0.10f, true,  lap => lap.AvgTemperatureF.HasValue ? $"{lap.AvgTemperatureF.Value:F0}°" : "—"),
-        ];
+        // Normalize fractions so they sum to 1.0
+        float totalFraction = columns.Sum(c => c.Fraction);
+        return columns.Select(c => new LapColumn(c.Header, c.Fraction / totalFraction, c.IsRightAligned, c.GetValue)).ToArray();
     }
 
     private static string TruncateExerciseName(string? name, int maxLen)

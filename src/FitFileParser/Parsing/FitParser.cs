@@ -98,10 +98,12 @@ public sealed class FitParser
         SessionMesg? sessionMesg = null;
         var lapMesgs = new List<LapMesg>();
         var setMesgs = new List<SetMesg>();
+        var eventMesgs = new List<EventMesg>();
 
         broadcaster.SessionMesgEvent += (_, e) => sessionMesg = e.mesg as SessionMesg;
         broadcaster.LapMesgEvent += (_, e) => { if (e.mesg is LapMesg lap) lapMesgs.Add(lap); };
         broadcaster.SetMesgEvent += (_, e) => { if (e.mesg is SetMesg set) setMesgs.Add(set); };
+        broadcaster.EventMesgEvent += (_, e) => { if (e.mesg is EventMesg evt) eventMesgs.Add(evt); };
 
         stream.Position = 0;
         try
@@ -116,7 +118,7 @@ public sealed class FitParser
         if (sessionMesg is null)
             throw new FitParseException("No session message found in the FIT file.");
 
-        return BuildActivitySummary(sessionMesg, lapMesgs, setMesgs);
+        return BuildActivitySummary(sessionMesg, lapMesgs, setMesgs, eventMesgs);
     }
 
     private static void ValidateStream(Stream stream)
@@ -132,7 +134,8 @@ public sealed class FitParser
             throw new FitParseException("The FIT file failed the integrity check (header or CRC mismatch).");
     }
 
-    private static ActivitySummary BuildActivitySummary(SessionMesg session, List<LapMesg> lapMesgs, List<SetMesg> setMesgs)
+    private static ActivitySummary BuildActivitySummary(SessionMesg session, List<LapMesg> lapMesgs,
+                                                        List<SetMesg> setMesgs, List<EventMesg> eventMesgs)
     {
         List<LapSummary> laps;
 
@@ -170,6 +173,9 @@ public sealed class FitParser
                 .Select((lap, index) => BuildLapSummary(lap, index + 1, FindMatchingSet(lap, setByTime)))
                 .ToList();
         }
+
+        // Extract notes from various potential sources
+        string? notes = ExtractNotes(session, eventMesgs);
 
         return new ActivitySummary
         {
@@ -211,7 +217,7 @@ public sealed class FitParser
             TotalCalories = session.GetTotalCalories().HasValue
                 ? (int)session.GetTotalCalories()!.Value : null,
             TotalFatCalories = session.GetTotalFatCalories().HasValue
-                ? session.GetTotalFatCalories()!.Value : null,
+                ? (int)session.GetTotalFatCalories()!.Value : null,
 
             // Power
             AvgPower = session.GetAvgPower(),
@@ -277,8 +283,32 @@ public sealed class FitParser
             WorkoutFeel = session.GetWorkoutFeel(),
             WorkoutRpe = session.GetWorkoutRpe(),
 
+            // Notes
+            Notes = notes,
+
             Laps = laps,
         };
+    }
+
+    /// <summary>
+    /// Attempts to extract notes/comments from various potential sources in the FIT file.
+    /// Note: This is a placeholder implementation as the Garmin FIT SDK version may not
+    /// expose developer fields. Users can manually add notes to the ActivitySummary if needed.
+    /// </summary>
+    private static string? ExtractNotes(SessionMesg session, List<EventMesg> eventMesgs)
+    {
+        // The Garmin FIT SDK used in this project may not expose methods to access
+        // developer fields or custom data fields where notes are typically stored.
+        // This method is a placeholder for future enhancement when:
+        // 1. The FIT SDK is updated to a version with developer field support
+        // 2. We discover the specific message types that contain notes
+        
+        // For now, users can add notes by:
+        // - Manually editing the output after generation
+        // - Extending this method with SDK-specific note extraction logic
+        // - Using the ActivitySummary.Notes property programmatically
+
+        return null;
     }
 
     private static LapSummary BuildLapSummary(LapMesg lap, int lapNumber, SetMesg? matchedSet)

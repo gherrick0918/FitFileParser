@@ -108,5 +108,9 @@ public sealed class ActivitySummary
     /// <summary>Workout RPE on the Borg scale (6–20).</summary>
     public byte? WorkoutRpe { get; init; }
 
+    // ── Notes / Comments ──────────────────────────────────────────────────
+    /// <summary>User-entered notes or comments about the activity.</summary>
+    public string? Notes { get; init; }
+
     public IReadOnlyList<LapSummary> Laps { get; init; } = [];
 }
