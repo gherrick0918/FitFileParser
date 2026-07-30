@@ -8,8 +8,7 @@ Use the steps below to generate installable Android packages.
 
 ## Prerequisites
 
-1. Install [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10) (`10.0.x`).
-   - Repository baseline is pinned in `global.json` (`10.0.302`).
+1. Install .net SDK 9
 2. Install Java 17 (required by Android tooling).
 3. Install Android workload:
 
@@ -54,7 +53,7 @@ From repository root:
 3. Build release app:
 
    ```bash
-   dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release -f net10.0-android
+   dotnet build src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj -c Release
    ```
 
    `net10.0-android` should always match
@@ -67,7 +66,7 @@ From repository root:
 
    ```bash
    dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj \
-     -c Release -f net10.0-android \
+     -c Release \
      -p:AndroidPackageFormat=apk \
      -p:AndroidKeyStore=true \
      -p:AndroidSigningKeyStore="C:/path/to/release.keystore" \
@@ -80,7 +79,7 @@ From repository root:
 
    ```bash
    dotnet publish src/FitFileParser.AndroidApp/FitFileParser.AndroidApp.csproj \
-     -c Release -f net10.0-android \
+     -c Release \
      -p:AndroidPackageFormat=aab \
      -p:AndroidKeyStore=true \
      -p:AndroidSigningKeyStore="C:/path/to/release.keystore" \
@@ -97,13 +96,13 @@ Replace `C:/path/to/release.keystore`, `my-key-alias`, `<key-password>`, and `<s
 
 ## Notes about framework support warnings
 
-The project targets `net10.0-android` which is supported by the .NET 10 SDK and Android workload. No `NETSDK1202` out-of-support warnings are expected with this configuration.
+The project targets `net10.0-android` which is supported by the .NET 9 SDK and Android workload. No `NETSDK1202` out-of-support warnings are expected with this configuration.
 
 ## Output locations
 
 Generated package files are created under:
 
-- `src/FitFileParser.AndroidApp/bin/Release/net10.0-android/publish/`
+- `src/FitFileParser.AndroidApp/bin/Release/net9.0-android/publish/`
 
 Look for:
 
@@ -126,10 +125,10 @@ this means the Android workload is not installed for the current .NET SDK versio
 dotnet workload install android
 ```
 
-Make sure you are using the **.NET 10 SDK (`10.0.x`)** — the Android workload must be installed against the same SDK version that builds the project. If multiple SDK versions are installed, verify the active version with `dotnet --version` and install the workload against it explicitly:
+Make sure you are using the **.NET 9 SDK (`9.0.x`)** — the Android workload must be installed against the same SDK version that builds the project. If multiple SDK versions are installed, verify the active version with `dotnet --version` and install the workload against it explicitly:
 
 ```bash
-dotnet workload install android --sdk-version 10.0.x
+dotnet workload install android --sdk-version 9.0.x
 ```
 
 ## Generate packages in GitHub Actions
